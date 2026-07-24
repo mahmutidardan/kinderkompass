@@ -46,6 +46,10 @@ Unter **Settings → Rules → Rulesets** ein Ruleset für `main` anlegen:
 
 Sobald ein zweiter Reviewer verfügbar ist, zusätzlich eine Freigabe verlangen und veraltete Freigaben bei neuen Commits verwerfen.
 
+### Tarifhinweis
+
+Für dieses private Repository lässt sich der technische Branch-Schutz im aktuellen kostenlosen GitHub-Tarif nicht aktivieren. GitHub verlangt dafür GitHub Pro oder ein öffentliches Repository. Die App bleibt aus Datenschutz- und Produktsicherheitsgründen privat. Bis zu einem möglichen Tarifwechsel gelten Pull Request, erfolgreicher `quality`-Check, Squash Merge und das Verbot direkter `main`-Pushes als verbindlicher Prozess, können aber nicht vollständig serverseitig erzwungen werden.
+
 ## Erster Kontrolllauf
 
 Nach dem ersten Push:
