@@ -62,6 +62,11 @@ export const Design = {
     iconSmall: 40,
     iconMedium: 48,
   },
+  navigation: {
+    tabBarHeight: 76,
+    tabBarEdgeGap: 9,
+    screenContentBottomPadding: 136,
+  },
   shadow: {
     card: {
       shadowColor: '#4A4254',

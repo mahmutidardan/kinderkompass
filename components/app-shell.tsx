@@ -1,6 +1,6 @@
 import { PropsWithChildren, ReactNode } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Design } from '@/constants/design';
 import { useStore } from '@/lib/store';
@@ -15,9 +15,17 @@ type Props = PropsWithChildren<{
 export function AppShell({ eyebrow, title, action, children }: Props) {
   const { storageError, syncStatus } = useStore();
   const connected = useConnectivity();
+  const insets = useSafeAreaInsets();
+  const bottomInsetOffset = Math.max(0, insets.bottom - Design.navigation.tabBarEdgeGap);
+
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={[
+          styles.content,
+          { paddingBottom: Design.navigation.screenContentBottomPadding + bottomInsetOffset },
+        ]}
+        showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <View style={styles.headerText}>
             {eyebrow ? <Text style={styles.eyebrow}>{eyebrow}</Text> : null}
@@ -45,7 +53,7 @@ export function AppShell({ eyebrow, title, action, children }: Props) {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Design.colors.background },
-  content: { width: '100%', maxWidth: 620, alignSelf: 'center', paddingHorizontal: 20, paddingTop: 18, paddingBottom: 136, gap: 22 },
+  content: { width: '100%', maxWidth: 620, alignSelf: 'center', paddingHorizontal: 20, paddingTop: 18, gap: 22 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 16 },
   headerText: { flex: 1, gap: 4 },
   eyebrow: { color: Design.colors.primary, fontSize: 12, lineHeight: 17, fontFamily: Design.fonts.bold, letterSpacing: 0.2 },

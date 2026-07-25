@@ -104,6 +104,7 @@ Reduzierte Bewegung wird respektiert. Haptik bestätigt wichtige direkte Aktione
 - Status nicht nur über Farbe
 - Dialoge fangen den Fokus ein und geben ihn beim Schließen sinnvoll zurück
 - Tastatur verdeckt keine aktive Eingabe oder primäre Aktion
+- absolut oder schwebend positionierte Navigation und Aktionen verwenden reale Safe-Area-Inset-Werte statt fester Bildschirmrand-Abstände
 
 ## 9. Pflichtzustände pro Screen
 
