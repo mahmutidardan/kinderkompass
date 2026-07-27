@@ -1,0 +1,63 @@
+name: Fehler melden
+description: Einen reproduzierbaren Fehler in Fieberwache melden
+title: "fix: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Bitte ausschließlich fiktive Daten verwenden. Keine Namen, Gesundheitsdaten, Telefonnummern oder Zugangsdaten eintragen.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Beobachtetes Verhalten
+      description: Was ist passiert?
+      placeholder: Kurz und konkret beschreiben.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Erwartetes Verhalten
+      description: Was sollte stattdessen passieren?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Schritte zur Reproduktion
+      description: Nummerierte Schritte mit fiktiven Beispieldaten.
+      placeholder: |
+        1. App öffnen
+        2. ...
+    validations:
+      required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Plattform
+      options:
+        - iPhone / iOS
+        - Android
+        - Web-Vorschau
+        - Mehrere Plattformen
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version oder Commit
+      placeholder: z. B. 0.2.0-beta.1
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Zusätzliche Hinweise
+      description: Screenshots nur, wenn darauf keine personenbezogenen oder gesundheitlichen Daten sichtbar sind.
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Datenschutz
+      options:
+        - label: Ich habe keine echten personenbezogenen, gesundheitlichen oder geheimen Daten eingefügt.
+          required: true
