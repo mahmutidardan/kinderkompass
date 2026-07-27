@@ -16,7 +16,7 @@ export default function TabLayout() {
       screenOptions={{
         tabBarActiveTintColor: Design.dashboard.colors.onPrimary,
         tabBarInactiveTintColor: Design.dashboard.colors.onSurfaceVariant,
-        tabBarActiveBackgroundColor: Design.dashboard.colors.primary,
+        tabBarActiveBackgroundColor: 'transparent',
         tabBarStyle: {
           position: 'absolute',
           left: 0,
@@ -37,7 +37,7 @@ export default function TabLayout() {
           shadowRadius: 24,
           elevation: 5,
         },
-        tabBarItemStyle: { borderRadius: Design.dashboard.radius.round, marginHorizontal: 3, marginVertical: 4, overflow: 'hidden' },
+        tabBarItemStyle: { marginHorizontal: 3, marginVertical: 4 },
         tabBarLabelStyle: { fontSize: 11, lineHeight: 14, fontFamily: Design.fonts.dashboardMedium, marginTop: 1, letterSpacing: 0.2 },
         tabBarIconStyle: { marginTop: 1 },
         headerShown: false,

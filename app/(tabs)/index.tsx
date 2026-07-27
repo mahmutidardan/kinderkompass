@@ -197,8 +197,8 @@ export default function HomeScreen() {
                     </>
                   ) : (
                     <>
-                      <Text style={styles.emptyMeasurement}>Noch keine Messung</Text>
-                      <Text style={styles.measurementMeta}>{selectedIsToday ? 'Heute wurde noch kein Wert erfasst.' : 'Für diesen Tag ist kein Wert gespeichert.'}</Text>
+                      <Text style={styles.emptyMeasurement}>Keine Messung</Text>
+                      <Text style={styles.measurementMeta}>{selectedIsToday ? 'Heute noch nicht gemessen.' : 'An diesem Tag nicht gemessen.'}</Text>
                     </>
                   )}
                 </View>
@@ -215,15 +215,15 @@ export default function HomeScreen() {
               <View style={styles.quickSection}>
                 <Text style={styles.sectionTitle}>{selectedIsToday ? 'Schnell eintragen' : 'Für diesen Tag nachtragen'}</Text>
                 <View style={styles.quickGrid}>
-                  <Pressable accessibilityRole="button" accessibilityLabel="Temperatur eintragen" onPress={() => router.push(temperatureEntryRoute)} style={({ pressed }) => [styles.quickTile, styles.quickTileHalf, pressed && styles.pressed]}>
+                  <Pressable accessibilityRole="button" accessibilityLabel="Temperatur eintragen" onPress={() => router.push(temperatureEntryRoute)} style={({ pressed }) => [styles.quickTile, desktop ? styles.quickTileDesktop : styles.quickTileHalf, pressed && styles.pressed]}>
                     <View style={[styles.quickIcon, { backgroundColor: DASHBOARD.colors.primarySoft }]}><MaterialIcons name="device-thermostat" size={24} color={DASHBOARD.colors.primary} /></View>
                     <Text style={styles.quickLabel}>Temperatur</Text>
                   </Pressable>
-                  <Pressable accessibilityRole="button" accessibilityLabel="Medikament eintragen" onPress={() => router.push(medicationEntryRoute)} style={({ pressed }) => [styles.quickTile, styles.quickTileHalf, pressed && styles.pressed]}>
+                  <Pressable accessibilityRole="button" accessibilityLabel="Medikament eintragen" onPress={() => router.push(medicationEntryRoute)} style={({ pressed }) => [styles.quickTile, desktop ? styles.quickTileDesktop : styles.quickTileHalf, pressed && styles.pressed]}>
                     <View style={[styles.quickIcon, { backgroundColor: DASHBOARD.colors.secondarySoft }]}><MaterialIcons name="medical-services" size={24} color={DASHBOARD.colors.secondary} /></View>
                     <Text style={styles.quickLabel}>Medikament</Text>
                   </Pressable>
-                  <Pressable accessibilityRole="button" accessibilityLabel="Arzttermin planen" onPress={() => router.push('/termine')} style={({ pressed }) => [styles.quickTile, styles.quickTileWide, pressed && styles.pressed]}>
+                  <Pressable accessibilityRole="button" accessibilityLabel="Arzttermin planen" onPress={() => router.push('/termine')} style={({ pressed }) => [styles.quickTile, desktop ? styles.quickTileDesktop : styles.quickTileWide, pressed && styles.pressed]}>
                     <View style={[styles.quickIcon, { backgroundColor: DASHBOARD.colors.secondaryContainerSoft }]}><MaterialIcons name="calendar-today" size={24} color={DASHBOARD.colors.secondary} /></View>
                     <Text style={styles.quickLabel}>Arzttermin</Text>
                   </Pressable>
@@ -306,7 +306,7 @@ const styles = StyleSheet.create({
   emptyMeasurement: { color: DASHBOARD.colors.onSurface, fontSize: 22, lineHeight: 30, fontFamily: Design.fonts.dashboardBold, marginTop: 2 },
   measurementMeta: { color: DASHBOARD.colors.outline, fontSize: 14, lineHeight: 20, fontFamily: Design.fonts.dashboardRegular },
   measureButton: { width: '100%', minHeight: 52, borderRadius: DASHBOARD.radius.round, paddingHorizontal: 24, paddingVertical: 16, backgroundColor: DASHBOARD.colors.primary, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
-  measureButtonDesktop: { width: undefined, alignSelf: 'center' },
+  measureButtonDesktop: { width: 'auto', alignSelf: 'center', flexShrink: 0 },
   measureButtonText: { color: DASHBOARD.colors.onPrimary, fontSize: 14, lineHeight: 16, letterSpacing: 0.14, fontFamily: Design.fonts.dashboardSemiBold },
   quickSection: { gap: 16 },
   sectionTitle: { color: DASHBOARD.colors.onSurface, fontSize: 24, lineHeight: 32, fontFamily: Design.fonts.dashboardBold },
@@ -314,6 +314,7 @@ const styles = StyleSheet.create({
   quickTile: { minHeight: 112, borderRadius: DASHBOARD.radius.card, padding: 16, backgroundColor: Design.colors.surface, alignItems: 'center', justifyContent: 'center', gap: 8, ...DASHBOARD.shadow.card },
   quickTileHalf: { flexGrow: 1, flexBasis: '43%' },
   quickTileWide: { flexGrow: 1, flexBasis: '100%' },
+  quickTileDesktop: { flexGrow: 1, flexBasis: 0 },
   quickIcon: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
   quickLabel: { color: DASHBOARD.colors.onSurface, fontSize: 14, lineHeight: 16, letterSpacing: 0.14, fontFamily: Design.fonts.dashboardSemiBold },
   motivationCard: { height: 192, borderRadius: DASHBOARD.radius.hero, overflow: 'hidden', justifyContent: 'center', padding: 32 },
