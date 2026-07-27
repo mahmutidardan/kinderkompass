@@ -18,7 +18,7 @@ Die verbindliche Quelle ist `constants/design.ts`.
 
 ### Terra-Referenz
 
-Die in `docs/stitch/gentle-child-health-tracker/` hinterlegten Stitch-Screens sind die verbindliche Stilreferenz für neue und überarbeitete Produktoberflächen. Übernommen werden ihre Prinzipien, nicht ihr HTML: warme Cremeflächen, gedämpfte Grün- und Pfirsichtöne, klar gegliederte Karten, großzügiger Weißraum und eine ruhige, handlungsorientierte Hierarchie.
+Die in `docs/stitch/gentle-child-health-tracker/` hinterlegten Stitch-Screens sind die verbindliche UI-Referenz für neue und überarbeitete Produktoberflächen. Ihre Informationsarchitektur, Abschnittsreihenfolge, Gruppierung, visuelle Hierarchie und Platzierung primärer Aktionen werden als Layout-Vertrag behandelt. Vorhandene Funktionen werden in diese Struktur eingeordnet; Abweichungen sind nur für medizinische Sicherheit, Barrierefreiheit oder zwingende Plattformunterschiede zulässig und müssen dokumentiert werden. Das exportierte HTML wird nicht direkt eingebettet, sondern mit den vorhandenen React-Native-Primitives originalgetreu und wartbar nachgebaut.
 
 Neue Funktionen nutzen zuerst die vorhandenen Primitives aus `components/ui/` und Werte aus `constants/design.ts`. Neue, visuell ähnliche Bausteine werden als wiederverwendbare Primitive ergänzt, statt pro Screen nachgebaut zu werden.
 

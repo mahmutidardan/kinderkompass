@@ -269,6 +269,11 @@ export default function TermineScreen() {
         )}
       </AppCard>
 
+      <AppSectionHeading title="Nächste Termine" subtitle="Arzttermine und Fragen im Blick" infoTitle="Arzttermine" infoText="Speichere Datum, Uhrzeit, Vorab-Erinnerung und Fragen für den Termin. Die Einträge bleiben auf diesem Gerät." />
+      {childAppointments.length === 0 ? <AppCard style={styles.emptyAppointments}><View style={styles.emptyAppointmentsIcon}><IconSymbol name="calendar-check" size={25} color={Design.colors.primaryDark} /></View><Text style={styles.emptyTitle}>Noch keine Termine</Text><Text style={styles.emptyCopy}>Lege den nächsten Arzttermin an und notiere deine Fragen direkt dazu.</Text></AppCard> : null}
+      {upcomingAppointments.length ? <View style={styles.appointmentSection}>{upcomingAppointments.map(renderAppointment)}</View> : null}
+      {pastAppointments.length ? <View style={styles.appointmentSection}><Pressable accessibilityRole="button" accessibilityState={{ expanded: showPastAppointments }} onPress={() => setShowPastAppointments((current) => !current)} style={styles.pastToggle}><View><Text style={styles.appointmentSectionTitle}>Vergangene Termine</Text><Text style={styles.pastToggleMeta}>{pastAppointments.length} gespeichert</Text></View><Text style={styles.pastToggleText}>{showPastAppointments ? 'Ausblenden' : 'Anzeigen'}</Text></Pressable>{showPastAppointments ? pastAppointments.map(renderAppointment) : null}</View> : null}
+
       <AppCard tone="lavender" elevated={false} style={styles.uCard}>
         <View style={styles.uHeader}>
           <View style={styles.uIcon}><Text style={styles.uIconText}>U</Text></View>
@@ -294,7 +299,7 @@ export default function TermineScreen() {
         <Text style={styles.uHint}>Die Übersicht ist eine Planungshilfe und ersetzt nicht das gelbe Untersuchungsheft oder die ärztliche Terminabsprache.</Text>
       </AppCard>
 
-      <AppSectionHeading title="Arzttermine" subtitle="Termine und Fragen im Blick" infoTitle="Arzttermine" infoText="Speichere Datum, Uhrzeit, Vorab-Erinnerung und Fragen für den Termin. Die Einträge bleiben auf diesem Gerät." action={<AppButton label="Termin" compact onPress={() => openNewAppointment()} icon={<IconSymbol name="plus" size={17} color="#FFFFFF" />} />} />
+      <AppButton label="Termin planen" onPress={() => openNewAppointment()} icon={<IconSymbol name="calendar-check" size={18} color="#FFFFFF" />} />
 
       <AppDialog
         visible={appointmentFormOpen}
@@ -326,9 +331,6 @@ export default function TermineScreen() {
           <AppInput label="Fragen für den Termin" optional value={appointmentNote} onChangeText={setAppointmentNote} placeholder="Was möchtest du ansprechen?" multiline helper="Die Erinnerung wird nur aktiviert, wenn der Termin noch in der Zukunft liegt." />
       </AppDialog>
 
-      {childAppointments.length === 0 ? <AppCard style={styles.emptyAppointments}><View style={styles.emptyAppointmentsIcon}><IconSymbol name="calendar-check" size={25} color={Design.colors.primaryDark} /></View><Text style={styles.emptyTitle}>Noch keine Termine</Text><Text style={styles.emptyCopy}>Lege den nächsten Arzttermin an und notiere deine Fragen direkt dazu.</Text></AppCard> : null}
-      {upcomingAppointments.length ? <View style={styles.appointmentSection}><Text style={styles.appointmentSectionTitle}>Bevorstehend</Text>{upcomingAppointments.map(renderAppointment)}</View> : null}
-      {pastAppointments.length ? <View style={styles.appointmentSection}><Pressable accessibilityRole="button" accessibilityState={{ expanded: showPastAppointments }} onPress={() => setShowPastAppointments((current) => !current)} style={styles.pastToggle}><View><Text style={styles.appointmentSectionTitle}>Vergangene Termine</Text><Text style={styles.pastToggleMeta}>{pastAppointments.length} gespeichert</Text></View><Text style={styles.pastToggleText}>{showPastAppointments ? 'Ausblenden' : 'Anzeigen'}</Text></Pressable>{showPastAppointments ? pastAppointments.map(renderAppointment) : null}</View> : null}
     </AppShell>
   );
 }

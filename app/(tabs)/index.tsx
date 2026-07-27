@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { ImageBackground, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { AppShell } from '@/components/app-shell';
 import { ChildAvatar } from '@/components/child-avatar';
@@ -253,13 +253,16 @@ export default function HomeScreen() {
                     <View style={[styles.quickIcon, { backgroundColor: Design.colors.peach }]}><IconSymbol name="pills.fill" size={20} color={Design.colors.peachStrong} /></View>
                     <Text style={styles.quickLabel}>{selectedIsToday ? 'Medikament' : 'Medikament nachtragen'}</Text>
                   </Pressable>
-                  {selectedIsToday ? (
-                    <Pressable accessibilityRole="button" accessibilityLabel={nightAlarmActive ? 'Aktiven Nachtalarm verwalten' : 'Nachtalarm einrichten'} accessibilityState={{ selected: nightAlarmActive }} style={[styles.quickAction, nightAlarmActive && styles.quickActionActive]} onPress={() => router.push('/modal?kind=night')}>
-                      <View style={[styles.quickIcon, { backgroundColor: Design.colors.sage }]}><IconSymbol name="moon.stars.fill" size={20} color="#5C8C7E" /></View>
-                      <Text style={[styles.quickLabel, nightAlarmActive && styles.quickLabelActive]}>{nightAlarmActive ? 'Nacht aktiv' : 'Nachtalarm'}</Text>
-                    </Pressable>
-                  ) : null}
+                  {selectedIsToday ? <Pressable accessibilityRole="button" accessibilityLabel="Arzttermin planen" style={styles.quickAction} onPress={() => router.push('/termine')}>
+                    <View style={[styles.quickIcon, { backgroundColor: Design.colors.yellow }]}><IconSymbol name="calendar" size={20} color={Design.colors.gold} /></View>
+                    <Text style={styles.quickLabel}>Arzttermin</Text>
+                  </Pressable> : null}
                 </View>
+                {selectedIsToday ? <Pressable accessibilityRole="button" accessibilityLabel={nightAlarmActive ? 'Aktiven Nachtalarm verwalten' : 'Nachtalarm einrichten'} accessibilityState={{ selected: nightAlarmActive }} style={[styles.nightQuickAction, nightAlarmActive && styles.quickActionActive]} onPress={() => router.push('/modal?kind=night')}>
+                  <View style={[styles.quickIcon, { backgroundColor: Design.colors.sage }]}><IconSymbol name="moon.stars.fill" size={20} color={Design.colors.sageStrong} /></View>
+                  <View style={styles.quickPrimaryCopy}><Text style={[styles.quickPrimaryLabel, nightAlarmActive && styles.quickLabelActive]}>{nightAlarmActive ? 'Nachtalarm aktiv' : 'Nachtalarm'}</Text><Text style={styles.quickPrimaryMeta}>{nightAlarmActive ? 'Zeitplan ansehen oder ändern' : 'Intervall oder einzelne Uhrzeiten festlegen'}</Text></View>
+                  <IconSymbol name="chevron.right" size={19} color={Design.colors.inkFaint} />
+                </Pressable> : null}
               </View>
             </View>
           ) : null}
@@ -319,10 +322,10 @@ export default function HomeScreen() {
             </Pressable>
           ) : null}
 
-          <View style={styles.careNote}>
-            <View style={styles.careIcon}><IconSymbol name="cross.case.fill" size={19} color="#5F8E80" /></View>
+          <ImageBackground source={require('../../docs/stitch/gentle-child-health-tracker/assets/stitch-asset-03.jpg')} imageStyle={styles.careImage} style={styles.careNote}>
+            <View style={styles.careOverlay} />
             <View style={styles.careCopy}><Text style={styles.careTitle}>Du kennst dein Kind am besten</Text><Text style={styles.careText}>Bei Unsicherheit oder deutlicher Veränderung bitte ärztlichen Rat einholen.</Text></View>
-          </View>
+          </ImageBackground>
         </>
       )}
     </AppShell>
@@ -371,6 +374,7 @@ const styles = StyleSheet.create({
   quickPrimaryMeta: { color: Design.colors.inkSoft, fontSize: 12, lineHeight: 17, fontFamily: Design.fonts.regular },
   quickSecondaryRow: { flexDirection: 'row', gap: 10 },
   quickActionActive: { backgroundColor: Design.colors.sage, borderColor: Design.colors.borderStrong },
+  nightQuickAction: { minHeight: 70, borderRadius: Design.radius.large, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', gap: 11, backgroundColor: Design.colors.surface, borderWidth: 1, borderColor: Design.colors.border },
   quickIcon: { width: 40, height: 40, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
   quickLabel: { color: Design.colors.ink, fontSize: 12, lineHeight: 17, fontFamily: Design.fonts.bold },
   quickLabelActive: { color: Design.colors.sageStrong },
@@ -403,9 +407,10 @@ const styles = StyleSheet.create({
   nightLine: { flex: 1, height: 1, backgroundColor: Design.colors.borderStrong },
   nightLabel: { minHeight: 40, borderRadius: 20, paddingHorizontal: 14, backgroundColor: Design.colors.sage, flexDirection: 'row', alignItems: 'center', gap: 8 },
   nightLabelText: { color: Design.colors.sageStrong, fontSize: 12, lineHeight: 17, fontFamily: Design.fonts.bold },
-  careNote: { backgroundColor: Design.colors.sage, borderRadius: Design.radius.large, padding: 17, flexDirection: 'row', alignItems: 'center', gap: 13 },
-  careIcon: { width: 42, height: 42, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.68)', alignItems: 'center', justifyContent: 'center' },
-  careCopy: { flex: 1, gap: 2 },
-  careTitle: { color: Design.colors.ink, fontSize: 14, lineHeight: 19, fontFamily: Design.fonts.bold },
-  careText: { color: Design.colors.inkSoft, fontSize: 12, lineHeight: 18, fontFamily: Design.fonts.regular },
+  careNote: { minHeight: 176, borderRadius: Design.radius.hero, overflow: 'hidden', justifyContent: 'center', padding: 22 },
+  careImage: { borderRadius: Design.radius.hero },
+  careOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(42,96,56,0.72)' },
+  careCopy: { maxWidth: 230, gap: 5 },
+  careTitle: { color: '#FFFFFF', fontSize: 19, lineHeight: 25, fontFamily: Design.fonts.bold },
+  careText: { color: 'rgba(255,255,255,0.86)', fontSize: 12, lineHeight: 18, fontFamily: Design.fonts.regular },
 });

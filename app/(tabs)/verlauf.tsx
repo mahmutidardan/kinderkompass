@@ -110,19 +110,6 @@ export default function VerlaufScreen() {
               </Pressable>
             ))}
           </View>
-          <View style={styles.statsRow}>
-            <View style={[styles.statCard, { backgroundColor: Design.colors.primarySoft }]}>
-              <View style={[styles.statIcon, { backgroundColor: Design.colors.lavender }]}><IconSymbol name="thermometer.medium" size={20} color={Design.colors.primaryDark} /></View>
-              <Text style={styles.statValue}>{todayTemps}</Text>
-              <Text style={styles.statLabel}>Messungen heute</Text>
-            </View>
-            <View style={[styles.statCard, { backgroundColor: Design.colors.accentSoft }]}>
-              <View style={[styles.statIcon, { backgroundColor: Design.colors.peach }]}><IconSymbol name="pills.fill" size={20} color={Design.colors.peachStrong} /></View>
-              <Text style={styles.statValue}>{todayMeds}</Text>
-              <Text style={styles.statLabel}>Gaben heute</Text>
-            </View>
-          </View>
-
           <LinearGradient colors={[Design.colors.surface, Design.colors.primarySoft]} style={styles.chartCard}>
             <View style={styles.cardHeader}>
               <View>
@@ -163,6 +150,19 @@ export default function VerlaufScreen() {
               </>
             )}
           </LinearGradient>
+
+          <View style={styles.statsRow}>
+            <View style={[styles.statCard, { backgroundColor: Design.colors.primarySoft }]}>
+              <View style={[styles.statIcon, { backgroundColor: Design.colors.lavender }]}><IconSymbol name="thermometer.medium" size={20} color={Design.colors.primaryDark} /></View>
+              <Text style={styles.statValue}>{todayTemps}</Text>
+              <Text style={styles.statLabel}>Messungen heute</Text>
+            </View>
+            <View style={[styles.statCard, { backgroundColor: Design.colors.accentSoft }]}>
+              <View style={[styles.statIcon, { backgroundColor: Design.colors.peach }]}><IconSymbol name="pills.fill" size={20} color={Design.colors.peachStrong} /></View>
+              <Text style={styles.statValue}>{todayMeds}</Text>
+              <Text style={styles.statLabel}>Gaben heute</Text>
+            </View>
+          </View>
 
           <LinearGradient colors={[Design.colors.surface, Design.colors.accentSoft]} style={styles.medChartCard}>
             <View style={styles.cardHeader}><View><Text style={styles.cardTitle}>Medikamentenverlauf</Text><Text style={styles.cardMeta}>{recentMeds.length ? `Letzte ${recentMeds.length} dokumentierte Gaben` : 'Noch keine Gabe dokumentiert'}</Text></View><InfoButton title="Medikamentenverlauf" text="Die Zeitleiste zeigt, wann welches Medikament mit welcher eingetragenen Menge verabreicht wurde." /></View>
