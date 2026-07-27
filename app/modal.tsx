@@ -20,6 +20,7 @@ import { formatGermanDate, parseGermanDate, parseGermanDateTime } from '@/lib/da
 type Kind = 'temperature' | 'medication' | 'night';
 type NightMode = 'interval' | 'manual';
 const METHODS: TemperatureMethod[] = ['Ohr', 'Stirn', 'Mund', 'Achsel', 'Rektal'];
+const TEMPERATURE_REMINDER_PRESETS = [1, 2, 4] as const;
 
 function formatAlarmTime(value: Date) {
   return new Intl.DateTimeFormat('de-DE', { hour: '2-digit', minute: '2-digit' }).format(value);
@@ -57,6 +58,7 @@ export default function ModalScreen() {
     activeChild,
     medicationInventory,
     temperatureReminderHours,
+    temperatureReminderEnabled: storedTemperatureReminderEnabled,
     nightAlarmActiveUntil,
     nightAlarmSummary,
     nightNotificationIds,
@@ -66,6 +68,7 @@ export default function ModalScreen() {
     addMedication,
     updateMedication,
     setTemperatureReminderHours,
+    setTemperatureReminderEnabled,
     setTemperatureReminderSchedule,
     setNightAlarm,
   } = store;
@@ -84,6 +87,8 @@ export default function ModalScreen() {
   const [method, setMethod] = useState<TemperatureMethod>(editingTemperature?.method ?? 'Ohr');
   const [note, setNote] = useState(editingTemperature?.note ?? '');
   const [temperatureReminder, setTemperatureReminder] = useState(temperatureReminderHours ? String(temperatureReminderHours).replace('.', ',') : '');
+  const [temperatureReminderEnabled, setTemperatureReminderEnabledLocal] = useState(storedTemperatureReminderEnabled ?? Boolean(temperatureReminderHours));
+  const [customTemperatureReminder, setCustomTemperatureReminder] = useState(Boolean(temperatureReminderHours && !TEMPERATURE_REMINDER_PRESETS.includes(temperatureReminderHours as 1 | 2 | 4)));
   const [selectedInventoryId, setSelectedInventoryId] = useState<string | undefined>(editingMedication?.medicationId ?? initialInventoryItem?.id);
   const [medicationName, setMedicationName] = useState(editingMedication?.name ?? initialInventoryItem?.name ?? '');
   const [amount, setAmount] = useState(editingMedication?.amount ?? initialInventoryItem?.defaultAmount ?? '');
@@ -154,6 +159,22 @@ export default function ModalScreen() {
     ]).start();
   }
 
+  function toggleTemperatureReminder() {
+    setTemperatureReminderEnabledLocal((current) => {
+      const next = !current;
+      if (next && !temperatureReminder.trim()) {
+        setTemperatureReminder('4');
+        setCustomTemperatureReminder(false);
+      }
+      return next;
+    });
+  }
+
+  function selectTemperatureReminderPreset(hours: number) {
+    setTemperatureReminder(String(hours));
+    setCustomTemperatureReminder(false);
+  }
+
   async function save() {
     if (!activeChild || saving || feedback) return;
     setErrors({});
@@ -167,7 +188,7 @@ export default function ModalScreen() {
         }
         const reminderText = temperatureReminder.trim();
         const hours = Number(reminderText.replace(',', '.'));
-        if (reminderText && (!Number.isFinite(hours) || hours < 0.5 || hours > 24)) {
+        if (temperatureReminderEnabled && (!reminderText || !Number.isFinite(hours) || hours < 0.5 || hours > 24)) {
           nextErrors.temperatureReminder = 'Bitte einen Abstand zwischen 0,5 und 24 Stunden eingeben.';
         }
         const recordedAt = parseGermanDateTime(recordedDate, recordedTime);
@@ -186,7 +207,8 @@ export default function ModalScreen() {
           setFeedback('Eintrag korrigiert.');
         } else {
           addTemperature(entry);
-          setTemperatureReminderHours(reminderText ? hours : undefined);
+          setTemperatureReminderHours(Number.isFinite(hours) ? hours : temperatureReminderHours);
+          setTemperatureReminderEnabled(temperatureReminderEnabled);
           let reminderFeedback = '';
           if (backdatedEntry) {
             reminderFeedback = ' Rückwirkend dokumentiert; bestehende Erinnerungen bleiben unverändert.';
@@ -194,7 +216,7 @@ export default function ModalScreen() {
             await cancelReminder(temperatureNotificationId);
             setTemperatureReminderSchedule();
           }
-          if (!backdatedEntry && Number.isFinite(hours) && hours > 0 && !nightAlarmActiveNow) {
+          if (!backdatedEntry && temperatureReminderEnabled && Number.isFinite(hours) && hours > 0 && !nightAlarmActiveNow) {
             const reminderAt = new Date(recordedAt!.getTime() + hours * 60 * 60 * 1000);
             if (reminderAt.getTime() <= Date.now()) {
               reminderFeedback = ' Der berechnete Erinnerungszeitpunkt liegt bereits zurück; es wurde kein Alarm erstellt.';
@@ -378,7 +400,43 @@ export default function ModalScreen() {
                   <View style={styles.backdateCopy}><Text style={styles.backdateTitle}>Rückwirkender Eintrag</Text><Text style={styles.backdateText}>Die Messung wird diesem Tag zugeordnet. Bestehende Erinnerungen werden nicht verschoben.</Text></View>
                 </View>
               ) : null}
-              {!editingTemperature && !isBackdatedSelection ? <AppInput appearance="reference" error={errors.temperatureReminder} label="Standard-Erinnerung für jede Messung" optional value={temperatureReminder} onChangeText={setTemperatureReminder} placeholder="z. B. 4" keyboardType="decimal-pad" suffix="Stunden" helper={nightAlarmActiveNow ? 'Nachtalarm aktiv — diese Standard-Erinnerung ist für die aktuelle Messung pausiert.' : 'Wird gespeichert und künftig nach jeder Messung automatisch verwendet.'} /> : null}
+              {!editingTemperature && !isBackdatedSelection ? (
+                <View style={styles.temperatureReminderSection}>
+                  <View style={styles.labelRow}>
+                    <Text style={styles.temperatureSectionTitle}>Fieber-Erinnerung</Text>
+                    <InfoButton compact title="Fieber-Erinnerung" text="Die Einstellung wird für kommende Messungen gespeichert. Sie erinnert nur an eine neue Dokumentation und ist keine medizinische Empfehlung." />
+                  </View>
+                  <View style={styles.reminderControls}>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={temperatureReminderEnabled ? 'Fieber-Erinnerung ausschalten' : 'Fieber-Erinnerung aktivieren'}
+                      accessibilityState={{ selected: temperatureReminderEnabled }}
+                      onPress={toggleTemperatureReminder}
+                      style={({ pressed }) => [styles.reminderToggle, temperatureReminderEnabled && styles.reminderToggleActive, pressed && styles.reminderPressed]}>
+                      <IconSymbol name={temperatureReminderEnabled ? 'bell.fill' : 'bell'} size={18} color={temperatureReminderEnabled ? '#FFFFFF' : Design.colors.primaryDark} />
+                      <Text style={[styles.reminderToggleText, temperatureReminderEnabled && styles.reminderToggleTextActive]}>{temperatureReminderEnabled ? 'Erinnerung aktiv' : 'Erinnerung aktivieren'}</Text>
+                    </Pressable>
+                    {temperatureReminderEnabled ? (
+                      <View accessibilityRole="radiogroup" style={styles.reminderOptions}>
+                        {TEMPERATURE_REMINDER_PRESETS.map((hours) => {
+                          const selected = !customTemperatureReminder && Number(temperatureReminder.replace(',', '.')) === hours;
+                          return (
+                            <Pressable accessibilityRole="radio" accessibilityState={{ checked: selected }} key={hours} onPress={() => selectTemperatureReminderPreset(hours)} style={({ pressed }) => [styles.reminderOption, selected && styles.reminderOptionActive, pressed && styles.reminderPressed]}>
+                              <Text style={[styles.reminderOptionText, selected && styles.reminderOptionTextActive]}>{hours} h</Text>
+                            </Pressable>
+                          );
+                        })}
+                        <Pressable accessibilityRole="radio" accessibilityState={{ checked: customTemperatureReminder }} onPress={() => setCustomTemperatureReminder(true)} style={({ pressed }) => [styles.reminderOption, styles.reminderOptionCustom, customTemperatureReminder && styles.reminderOptionActive, pressed && styles.reminderPressed]}>
+                          <Text style={[styles.reminderOptionText, customTemperatureReminder && styles.reminderOptionTextActive]}>Individuell</Text>
+                        </Pressable>
+                      </View>
+                    ) : null}
+                  </View>
+                  {temperatureReminderEnabled && customTemperatureReminder ? <AppInput appearance="reference" error={errors.temperatureReminder} label="Eigener Abstand" value={temperatureReminder} onChangeText={setTemperatureReminder} placeholder="z. B. 3,5" keyboardType="decimal-pad" suffix="Stunden" /> : null}
+                  {errors.temperatureReminder && !customTemperatureReminder ? <Text accessibilityLiveRegion="polite" style={styles.inlineError}>{errors.temperatureReminder}</Text> : null}
+                  <Text style={styles.reminderHelper}>{nightAlarmActiveNow ? 'Der Nachtalarm ist aktiv. Die Standard-Erinnerung bleibt gespeichert, wird für diese Messung aber pausiert.' : temperatureReminderEnabled ? `Nach jeder neuen Messung wird automatisch wieder nach ${temperatureReminder || '–'} Stunden erinnert.` : 'Es wird nach dem Speichern keine neue Fieber-Erinnerung geplant.'}</Text>
+                </View>
+              ) : null}
               <AppInput appearance="reference" label="Notiz" optional value={note} onChangeText={setNote} placeholder="Wie geht es dem Kind?" multiline />
             </View>
           ) : null}
@@ -563,6 +621,20 @@ const styles = StyleSheet.create({
   temperatureDateTimeRowWide: { flexDirection: 'row' },
   temperatureDateField: { width: '100%' },
   temperatureDateFieldWide: { flex: 1, width: undefined },
+  temperatureReminderSection: { gap: 14 },
+  reminderControls: { gap: 12 },
+  reminderToggle: { minHeight: 52, alignSelf: 'flex-start', borderRadius: 16, paddingHorizontal: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 9, backgroundColor: Design.colors.primarySoft, borderWidth: 1, borderColor: Design.colors.borderStrong },
+  reminderToggleActive: { backgroundColor: Design.colors.primary, borderColor: Design.colors.primary },
+  reminderToggleText: { color: Design.colors.primaryDark, fontSize: 14, lineHeight: 20, fontFamily: Design.fonts.referenceBodyBold },
+  reminderToggleTextActive: { color: '#FFFFFF' },
+  reminderOptions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  reminderOption: { minWidth: 58, minHeight: 48, borderRadius: 14, paddingHorizontal: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: Design.colors.surface, borderWidth: 1, borderColor: Design.colors.referenceOutlineVariantFaint },
+  reminderOptionCustom: { minWidth: 108 },
+  reminderOptionActive: { backgroundColor: Design.colors.referencePrimaryContainer, borderColor: Design.colors.referencePrimaryContainer },
+  reminderOptionText: { color: Design.colors.inkSoft, fontSize: 14, lineHeight: 20, fontFamily: Design.fonts.referenceBodySemiBold },
+  reminderOptionTextActive: { color: Design.colors.referenceOnPrimaryContainer, fontFamily: Design.fonts.referenceBodyBold },
+  reminderPressed: { opacity: 0.78, transform: [{ scale: 0.98 }] },
+  reminderHelper: { color: Design.colors.inkSoft, fontSize: 12, lineHeight: 18, fontFamily: Design.fonts.referenceBody },
   dateTimeRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-start', gap: 10 },
   dateField: { flexGrow: 1, flexBasis: 190 },
   timeField: { flexGrow: 1, flexBasis: 140 },

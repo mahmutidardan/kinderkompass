@@ -42,6 +42,7 @@ const MAPPING = {
   'plus': Plus,
   'moon.stars.fill': MoonStar,
   'bell.fill': Bell,
+  'bell': Bell,
   'pencil': Pencil,
   'trash.fill': Trash2,
   'xmark': X,

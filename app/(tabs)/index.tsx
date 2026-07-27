@@ -17,6 +17,15 @@ import { getTemperatureGuidance } from '@/lib/temperature-guidance';
 const DASHBOARD = Design.dashboard;
 const WEEKDAY_LABELS = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
 
+type DashboardEntry = {
+  id: string;
+  type: 'temperature' | 'medication';
+  recordedAt: string;
+  title: string;
+  detail: string;
+  color: string;
+};
+
 function dateKey(value: Date | string) {
   const date = typeof value === 'string' ? new Date(value) : value;
   const year = date.getFullYear();
@@ -25,11 +34,11 @@ function dateKey(value: Date | string) {
   return `${year}-${month}-${day}`;
 }
 
-function getCurrentWeek(today = new Date()) {
+function getWeek(weekOffset: number, today = new Date()) {
   const mondayOffset = (today.getDay() + 6) % 7;
   const monday = new Date(today);
   monday.setHours(12, 0, 0, 0);
-  monday.setDate(today.getDate() - mondayOffset);
+  monday.setDate(today.getDate() - mondayOffset + weekOffset * 7);
   return Array.from({ length: 7 }, (_, index) => {
     const date = new Date(monday);
     date.setDate(monday.getDate() + index);
@@ -69,6 +78,7 @@ export default function HomeScreen() {
   const {
     activeChild,
     temperatures,
+    medications,
     nightAlarmActive,
     storageError,
     syncStatus,
@@ -79,10 +89,11 @@ export default function HomeScreen() {
   const desktop = width >= 768;
   const scrollRef = useRef<ScrollView>(null);
   const [todayKey, setTodayKey] = useState(() => dateKey(new Date()));
+  const [weekOffset, setWeekOffset] = useState(0);
   const [selectedDateKey, setSelectedDateKey] = useState(todayKey);
   const [remindersY, setRemindersY] = useState(0);
   const [captureMenuOpen, setCaptureMenuOpen] = useState(false);
-  const weekDays = useMemo(() => getCurrentWeek(new Date(`${todayKey}T12:00:00`)), [todayKey]);
+  const weekDays = useMemo(() => getWeek(weekOffset, new Date(`${todayKey}T12:00:00`)), [todayKey, weekOffset]);
 
   useEffect(() => {
     const interval = setInterval(() => setTodayKey(dateKey(new Date())), 60_000);
@@ -99,6 +110,42 @@ export default function HomeScreen() {
     .sort((a, b) => a.recordedAt.localeCompare(b.recordedAt))
     .at(-1);
   const guidance = latestMeasurement ? getTemperatureGuidance(latestMeasurement.temperature, activeChild?.birthDate) : undefined;
+  const selectedEntries: DashboardEntry[] = [
+    ...temperatures
+      .filter((item) => item.childId === activeChild?.id && dateKey(item.recordedAt) === selectedDateKey)
+      .map((item) => ({
+        id: item.id,
+        type: 'temperature' as const,
+        recordedAt: item.recordedAt,
+        title: `${item.temperature.toFixed(1).replace('.', ',')} °C`,
+        detail: `${item.method}${item.note ? ` · ${item.note}` : ''}`,
+        color: getTemperatureGuidance(item.temperature, activeChild?.birthDate).color,
+      })),
+    ...medications
+      .filter((item) => item.childId === activeChild?.id && dateKey(item.recordedAt) === selectedDateKey)
+      .map((item) => ({
+        id: item.id,
+        type: 'medication' as const,
+        recordedAt: item.recordedAt,
+        title: item.name,
+        detail: item.amount || 'Gabe dokumentiert',
+        color: Design.colors.peachStrong,
+      })),
+  ].sort((a, b) => b.recordedAt.localeCompare(a.recordedAt));
+
+  function changeWeek(direction: -1 | 1) {
+    const nextOffset = weekOffset + direction;
+    if (nextOffset > 0) return;
+    const nextDate = new Date(`${selectedDateKey}T12:00:00`);
+    nextDate.setDate(nextDate.getDate() + direction * 7);
+    setWeekOffset(nextOffset);
+    setSelectedDateKey(dateKey(nextDate));
+  }
+
+  function selectToday() {
+    setWeekOffset(0);
+    setSelectedDateKey(todayKey);
+  }
 
   function openCapture(path: string) {
     setCaptureMenuOpen(false);
@@ -156,7 +203,18 @@ export default function HomeScreen() {
             <View style={styles.calendarSection}>
               <View style={styles.sectionHeader}>
                 <Text style={styles.pageTitle}>{selectedIsToday ? 'Heute' : formatSelectedDate(selectedDate)}</Text>
-                <Text style={styles.monthLabel}>{formatMonth(selectedDate)}</Text>
+                <View style={styles.calendarNavigation}>
+                  <Pressable accessibilityRole="button" accessibilityLabel="Vorherige Woche" hitSlop={6} onPress={() => changeWeek(-1)} style={({ pressed }) => [styles.calendarNavigationButton, pressed && styles.pressed]}>
+                    <MaterialIcons name="chevron-left" size={22} color={DASHBOARD.colors.primary} />
+                  </Pressable>
+                  <View style={styles.calendarPeriod}>
+                    <Text style={styles.monthLabel}>{formatMonth(selectedDate)}</Text>
+                    {!selectedIsToday ? <Pressable accessibilityRole="button" accessibilityLabel="Zum heutigen Tag" onPress={selectToday} hitSlop={8}><Text style={styles.todayLink}>Heute</Text></Pressable> : null}
+                  </View>
+                  <Pressable accessibilityRole="button" accessibilityLabel="Nächste Woche" accessibilityState={{ disabled: weekOffset === 0 }} disabled={weekOffset === 0} hitSlop={6} onPress={() => changeWeek(1)} style={({ pressed }) => [styles.calendarNavigationButton, weekOffset === 0 && styles.calendarNavigationButtonDisabled, pressed && styles.pressed]}>
+                    <MaterialIcons name="chevron-right" size={22} color={DASHBOARD.colors.primary} />
+                  </Pressable>
+                </View>
               </View>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.calendarStrip}>
                 {weekDays.map((day, index) => {
@@ -244,6 +302,51 @@ export default function HomeScreen() {
                 <Text style={styles.motivationText}>Kleine Schritte geben Sicherheit im Familienalltag.</Text>
               </View>
             </ImageBackground>
+
+            <View style={styles.historySection}>
+              <View style={styles.historyHeader}>
+                <View style={styles.historyHeading}>
+                  <Text style={styles.sectionTitle}>Verlauf</Text>
+                  <Text style={styles.historySubtitle}>{selectedEntries.length} {selectedEntries.length === 1 ? 'Eintrag' : 'Einträge'} am ausgewählten Tag</Text>
+                </View>
+                <Pressable accessibilityRole="button" accessibilityLabel="Kompletten Verlauf ansehen" onPress={() => router.push('/verlauf')} style={({ pressed }) => [styles.historyLinkButton, pressed && styles.pressed]}>
+                  <Text style={styles.historyLink}>Alle ansehen</Text>
+                  <MaterialIcons name="arrow-forward" size={18} color={DASHBOARD.colors.primary} />
+                </Pressable>
+              </View>
+              {selectedEntries.length === 0 ? (
+                <View style={styles.historyEmpty}>
+                  <View style={styles.historyEmptyIcon}><MaterialIcons name="timeline" size={24} color={DASHBOARD.colors.primary} /></View>
+                  <View style={styles.historyEmptyCopy}>
+                    <Text style={styles.historyEmptyTitle}>Noch keine Einträge</Text>
+                    <Text style={styles.historyEmptyText}>{selectedIsFuture ? 'Zukünftige Tage enthalten noch keine Dokumentation.' : 'Messungen und Medikamentengaben erscheinen hier automatisch.'}</Text>
+                  </View>
+                </View>
+              ) : (
+                <View style={styles.historyCard}>
+                  {selectedEntries.slice(0, 4).map((entry, index) => (
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={`${entry.title}, ${formatTime(entry.recordedAt)} Uhr bearbeiten`}
+                      key={`${entry.type}-${entry.id}`}
+                      onPress={() => router.push(`/modal?kind=${entry.type === 'medication' ? 'medication' : 'temperature'}&entryId=${entry.id}`)}
+                      style={({ pressed }) => [styles.historyRow, index < Math.min(selectedEntries.length, 4) - 1 && styles.historyRowDivider, pressed && styles.historyRowPressed]}>
+                      <View style={[styles.historyIcon, { backgroundColor: `${entry.color}1A` }]}>
+                        <MaterialIcons name={entry.type === 'medication' ? 'medical-services' : 'device-thermostat'} size={20} color={entry.color} />
+                      </View>
+                      <View style={styles.historyCopy}>
+                        <Text style={styles.historyTitle}>{entry.title}</Text>
+                        <Text style={styles.historyDetail} numberOfLines={1}>{entry.detail}</Text>
+                      </View>
+                      <View style={styles.historyEnd}>
+                        <Text style={styles.historyTime}>{formatTime(entry.recordedAt)} Uhr</Text>
+                        <MaterialIcons name="chevron-right" size={20} color={DASHBOARD.colors.outline} />
+                      </View>
+                    </Pressable>
+                  ))}
+                </View>
+              )}
+            </View>
           </>
         )}
       </ScrollView>
@@ -282,13 +385,18 @@ const styles = StyleSheet.create({
   offlineTitle: { color: Design.colors.gold, fontSize: 14, lineHeight: 18, fontFamily: Design.fonts.dashboardSemiBold },
   offlineText: { color: DASHBOARD.colors.onSurfaceVariant, fontSize: 14, lineHeight: 20, fontFamily: Design.fonts.dashboardRegular },
   calendarSection: { gap: 16 },
-  sectionHeader: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12 },
+  sectionHeader: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12 },
   pageTitle: { color: DASHBOARD.colors.onSurface, fontSize: 24, lineHeight: 32, letterSpacing: -0.48, fontFamily: Design.fonts.dashboardBold },
   monthLabel: { color: DASHBOARD.colors.primary, fontSize: 14, lineHeight: 16, letterSpacing: 0.14, textTransform: 'capitalize', fontFamily: Design.fonts.dashboardSemiBold },
+  calendarNavigation: { flexDirection: 'row', alignItems: 'center', gap: 4, marginLeft: 'auto' },
+  calendarNavigationButton: { width: 44, height: 44, borderRadius: 22, backgroundColor: DASHBOARD.colors.primarySoft, alignItems: 'center', justifyContent: 'center' },
+  calendarNavigationButtonDisabled: { opacity: 0.3 },
+  calendarPeriod: { minWidth: 112, alignItems: 'center', gap: 2 },
+  todayLink: { color: DASHBOARD.colors.primary, fontSize: 12, lineHeight: 16, fontFamily: Design.fonts.dashboardSemiBold },
   calendarStrip: { gap: 12, paddingVertical: 8 },
   calendarDay: { width: 56, height: 80, flexShrink: 0, borderRadius: 12, backgroundColor: DASHBOARD.colors.surfaceVariantSoft, alignItems: 'center', justifyContent: 'center', gap: 4 },
   calendarDayActive: { backgroundColor: DASHBOARD.colors.primary, ...DASHBOARD.shadow.active },
-  calendarDayDisabled: { opacity: 1 },
+  calendarDayDisabled: { opacity: 0.35 },
   calendarWeekday: { color: DASHBOARD.colors.onSurfaceVariant, fontSize: 12, lineHeight: 14, letterSpacing: 0.24, fontFamily: Design.fonts.dashboardMedium },
   calendarNumber: { color: DASHBOARD.colors.onSurfaceVariant, fontSize: 20, lineHeight: 28, fontFamily: Design.fonts.dashboardSemiBold },
   calendarTextActive: { color: DASHBOARD.colors.onPrimary },
@@ -323,6 +431,27 @@ const styles = StyleSheet.create({
   motivationCopy: { maxWidth: 210, gap: 8 },
   motivationTitle: { color: DASHBOARD.colors.onPrimary, fontSize: 18, lineHeight: 24, fontFamily: Design.fonts.dashboardSemiBold },
   motivationText: { color: DASHBOARD.colors.whiteSoft, fontSize: 14, lineHeight: 20, fontFamily: Design.fonts.dashboardRegular },
+  historySection: { gap: 16 },
+  historyHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  historyHeading: { flex: 1 },
+  historySubtitle: { color: DASHBOARD.colors.onSurfaceVariant, fontSize: 12, lineHeight: 18, fontFamily: Design.fonts.dashboardRegular, marginTop: 2 },
+  historyLinkButton: { minHeight: 44, paddingHorizontal: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4 },
+  historyLink: { color: DASHBOARD.colors.primary, fontSize: 13, lineHeight: 18, fontFamily: Design.fonts.dashboardSemiBold },
+  historyCard: { borderRadius: DASHBOARD.radius.card, paddingHorizontal: 16, backgroundColor: Design.colors.surface, ...DASHBOARD.shadow.card },
+  historyRow: { minHeight: 76, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  historyRowDivider: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: DASHBOARD.colors.surfaceVariant },
+  historyRowPressed: { opacity: 0.72 },
+  historyIcon: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  historyCopy: { flex: 1, gap: 2 },
+  historyTitle: { color: DASHBOARD.colors.onSurface, fontSize: 15, lineHeight: 20, fontFamily: Design.fonts.dashboardSemiBold },
+  historyDetail: { color: DASHBOARD.colors.onSurfaceVariant, fontSize: 12, lineHeight: 18, fontFamily: Design.fonts.dashboardRegular },
+  historyEnd: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  historyTime: { color: DASHBOARD.colors.outline, fontSize: 12, lineHeight: 18, fontFamily: Design.fonts.dashboardMedium },
+  historyEmpty: { minHeight: 104, borderRadius: DASHBOARD.radius.card, padding: 20, backgroundColor: Design.colors.surface, flexDirection: 'row', alignItems: 'center', gap: 14, ...DASHBOARD.shadow.card },
+  historyEmptyIcon: { width: 48, height: 48, borderRadius: 24, backgroundColor: DASHBOARD.colors.primarySoft, alignItems: 'center', justifyContent: 'center' },
+  historyEmptyCopy: { flex: 1, gap: 3 },
+  historyEmptyTitle: { color: DASHBOARD.colors.onSurface, fontSize: 15, lineHeight: 20, fontFamily: Design.fonts.dashboardSemiBold },
+  historyEmptyText: { color: DASHBOARD.colors.onSurfaceVariant, fontSize: 12, lineHeight: 18, fontFamily: Design.fonts.dashboardRegular },
   fab: { position: 'absolute', right: 24, width: 56, height: 56, borderRadius: 16, backgroundColor: DASHBOARD.colors.primary, alignItems: 'center', justifyContent: 'center', zIndex: 10, ...Design.shadow.floating },
   pressed: { opacity: 0.84, transform: [{ scale: 0.96 }] },
   captureMenu: { gap: 8 },

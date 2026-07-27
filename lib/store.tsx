@@ -79,6 +79,7 @@ type AppState = {
   doctorContacts: DoctorContact[];
   appointments: Appointment[];
   temperatureReminderHours?: number;
+  temperatureReminderEnabled?: boolean;
   nightAlarmActiveUntil?: string;
   nightAlarmSummary?: string;
   nightAlarmTimes?: string[];
@@ -99,6 +100,7 @@ type Store = AppState & {
   deleteChild: (id: string) => void;
   setActiveChild: (id: string) => void;
   setTemperatureReminderHours: (hours?: number) => void;
+  setTemperatureReminderEnabled: (enabled: boolean) => void;
   setTemperatureReminderSchedule: (reminderAt?: string, notificationId?: string) => void;
   setNightAlarm: (activeUntil?: string, summary?: string, times?: string[], notificationIds?: string[]) => void;
   saveDoctorContact: (childId: string, contact: Omit<DoctorContact, 'childId'>) => void;
@@ -167,6 +169,7 @@ export function StoreProvider({ children, storageScope = 'local-guest' }: PropsW
           medicationInventory: parsed.medicationInventory ?? [],
           doctorContacts: parsed.doctorContacts ?? [],
           appointments: parsed.appointments ?? [],
+          temperatureReminderEnabled: parsed.temperatureReminderEnabled ?? Boolean(parsed.temperatureReminderHours),
           nightAlarmTimes: parsed.nightAlarmTimes ?? [],
           nightNotificationIds: parsed.nightNotificationIds ?? [],
         });
@@ -266,6 +269,7 @@ export function StoreProvider({ children, storageScope = 'local-guest' }: PropsW
       },
       setActiveChild: (id) => setState((current) => ({ ...current, activeChildId: id })),
       setTemperatureReminderHours: (hours) => setState((current) => ({ ...current, temperatureReminderHours: hours })),
+      setTemperatureReminderEnabled: (enabled) => setState((current) => ({ ...current, temperatureReminderEnabled: enabled })),
       setTemperatureReminderSchedule: (reminderAt, notificationId) => setState((current) => ({
         ...current,
         temperatureReminderAt: reminderAt,
