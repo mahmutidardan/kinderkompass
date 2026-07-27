@@ -207,13 +207,13 @@ export default function VerlaufScreen() {
 }
 
 const styles = StyleSheet.create({
-  rangeSwitch: { flexDirection: 'row', borderRadius: Design.radius.medium, backgroundColor: Design.colors.backgroundMuted, padding: 5, gap: 3 },
+  rangeSwitch: { flexDirection: 'row', borderRadius: Design.radius.large, backgroundColor: Design.colors.surface, padding: 5, gap: 3, borderWidth: 1, borderColor: Design.colors.border },
   rangeButton: { flex: 1, minHeight: 44, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
-  rangeButtonActive: { backgroundColor: Design.colors.surface, ...Design.shadow.card },
+  rangeButtonActive: { backgroundColor: Design.colors.primarySoft },
   rangeText: { color: Design.colors.inkSoft, fontSize: 12, lineHeight: 17, fontFamily: Design.fonts.semiBold },
   rangeTextActive: { color: Design.colors.primaryDark, fontFamily: Design.fonts.bold },
   statsRow: { flexDirection: 'row', gap: 12 },
-  statCard: { flex: 1, borderRadius: Design.radius.large, padding: 17, minHeight: 136 },
+  statCard: { flex: 1, borderRadius: Design.radius.large, padding: 17, minHeight: 124, borderWidth: 1, borderColor: Design.colors.border },
   statIcon: { width: 42, height: 42, borderRadius: 16, alignItems: 'center', justifyContent: 'center', marginBottom: 11 },
   statValue: { color: Design.colors.ink, fontSize: 25, lineHeight: 31, fontFamily: Design.fonts.bold, letterSpacing: -0.5 },
   statLabel: { color: Design.colors.inkSoft, fontSize: 12, lineHeight: 17, fontFamily: Design.fonts.regular },
@@ -224,7 +224,7 @@ const styles = StyleSheet.create({
   cardMeta: { color: Design.colors.inkSoft, fontSize: 12, lineHeight: 17, fontFamily: Design.fonts.regular, marginTop: 2 },
   latestPill: { backgroundColor: Design.colors.primarySoft, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 14 },
   latest: { color: Design.colors.primaryDark, fontSize: 17, lineHeight: 23, fontFamily: Design.fonts.bold },
-  lineChart: { width: '100%', height: 205, borderRadius: 18, overflow: 'hidden' },
+  lineChart: { width: '100%', height: 220, borderRadius: 20, overflow: 'hidden' },
   selectedPoint: { borderRadius: Design.radius.medium, backgroundColor: 'rgba(255,255,255,0.72)', paddingHorizontal: 14, paddingVertical: 11, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
   selectedValue: { color: Design.colors.ink, fontSize: 16, lineHeight: 22, fontFamily: Design.fonts.bold },
   selectedMeta: { color: Design.colors.inkSoft, fontSize: 12, lineHeight: 17, fontFamily: Design.fonts.regular, marginTop: 2 },

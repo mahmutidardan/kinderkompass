@@ -33,19 +33,21 @@ export function AppShell({ eyebrow, title, action, children }: Props) {
           </View>
           {action}
         </View>
-        {storageError || syncStatus === 'error' ? (
-          <View accessibilityLiveRegion="polite" style={styles.errorBanner}>
-            <Text style={styles.errorTitle}>{storageError ? 'Speicherung unterbrochen' : 'Synchronisierung pausiert'}</Text>
-            <Text style={styles.errorText}>{storageError ?? 'Die Daten bleiben auf diesem Gerät und werden erneut synchronisiert, sobald der Kontozugang verfügbar ist.'}</Text>
-          </View>
-        ) : null}
-        {connected === false ? (
-          <View accessibilityLiveRegion="polite" style={styles.offlineBanner}>
-            <Text style={styles.offlineTitle}>Offline-Modus</Text>
-            <Text style={styles.offlineText}>Du kannst weiter dokumentieren. Online-Konten werden synchronisiert, sobald wieder eine Verbindung besteht.</Text>
-          </View>
-        ) : null}
-        {children}
+        <View style={styles.pageBody}>
+          {storageError || syncStatus === 'error' ? (
+            <View accessibilityLiveRegion="polite" style={styles.errorBanner}>
+              <Text style={styles.errorTitle}>{storageError ? 'Speicherung unterbrochen' : 'Synchronisierung pausiert'}</Text>
+              <Text style={styles.errorText}>{storageError ?? 'Die Daten bleiben auf diesem Gerät und werden erneut synchronisiert, sobald der Kontozugang verfügbar ist.'}</Text>
+            </View>
+          ) : null}
+          {connected === false ? (
+            <View accessibilityLiveRegion="polite" style={styles.offlineBanner}>
+              <Text style={styles.offlineTitle}>Offline-Modus</Text>
+              <Text style={styles.offlineText}>Du kannst weiter dokumentieren. Online-Konten werden synchronisiert, sobald wieder eine Verbindung besteht.</Text>
+            </View>
+          ) : null}
+          {children}
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -53,11 +55,12 @@ export function AppShell({ eyebrow, title, action, children }: Props) {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Design.colors.background },
-  content: { width: '100%', maxWidth: 620, alignSelf: 'center', paddingHorizontal: 20, paddingTop: 18, gap: 22 },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 16 },
+  content: { width: '100%', maxWidth: 620, alignSelf: 'center', paddingTop: 0 },
+  header: { minHeight: 66, paddingHorizontal: 20, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 16, backgroundColor: 'rgba(250,246,240,0.96)', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: Design.colors.border },
+  pageBody: { paddingHorizontal: 20, paddingTop: 20, gap: 24 },
   headerText: { flex: 1, gap: 4 },
-  eyebrow: { color: Design.colors.primary, fontSize: 12, lineHeight: 17, fontFamily: Design.fonts.bold, letterSpacing: 0.2 },
-  title: { color: Design.colors.ink, ...Design.type.title, fontFamily: Design.fonts.bold },
+  eyebrow: { color: Design.colors.primary, fontSize: 11, lineHeight: 15, fontFamily: Design.fonts.bold, letterSpacing: 0.25 },
+  title: { color: Design.colors.ink, fontSize: 24, lineHeight: 29, letterSpacing: -0.55, fontFamily: Design.fonts.bold },
   errorBanner: { borderRadius: Design.radius.medium, backgroundColor: Design.colors.dangerSoft, padding: 14, gap: 3, borderWidth: 1, borderColor: '#E9C7C1' },
   errorTitle: { color: Design.colors.danger, fontSize: 13, lineHeight: 18, fontFamily: Design.fonts.bold },
   errorText: { color: Design.colors.inkSoft, fontSize: 12, lineHeight: 18, fontFamily: Design.fonts.regular },

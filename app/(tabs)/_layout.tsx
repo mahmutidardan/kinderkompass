@@ -1,5 +1,6 @@
 import { Tabs } from 'expo-router';
 import React from 'react';
+import { StyleSheet } from 'react-native';
 
 import { HapticTab } from '@/components/haptic-tab';
 import { IconSymbol } from '@/components/ui/icon-symbol';
@@ -8,7 +9,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function TabLayout() {
   const insets = useSafeAreaInsets();
-  const tabBarBottom = Math.max(insets.bottom, Design.navigation.tabBarEdgeGap);
+  const tabBarBottom = 0;
 
   return (
     <Tabs
@@ -18,23 +19,24 @@ export default function TabLayout() {
         tabBarActiveBackgroundColor: Design.colors.primarySoft,
         tabBarStyle: {
           position: 'absolute',
-          left: Math.max(12, insets.left + 12),
-          right: Math.max(12, insets.right + 12),
+          left: 0,
+          right: 0,
           bottom: tabBarBottom,
-          height: Design.navigation.tabBarHeight,
+          height: Design.navigation.tabBarHeight + insets.bottom,
           paddingTop: 7,
-          paddingBottom: 7,
-          paddingHorizontal: 3,
+          paddingBottom: Math.max(insets.bottom, 7),
+          paddingHorizontal: 7,
           backgroundColor: Design.colors.surfaceRaised,
-          borderTopWidth: 0,
-          borderRadius: 27,
+          borderTopWidth: StyleSheet.hairlineWidth,
+          borderTopColor: Design.colors.border,
+          borderRadius: 0,
           shadowColor: Design.colors.shadow,
-          shadowOffset: { width: 0, height: 8 },
-          shadowOpacity: 0.12,
-          shadowRadius: 22,
-          elevation: 7,
+          shadowOffset: { width: 0, height: -4 },
+          shadowOpacity: 0.06,
+          shadowRadius: 18,
+          elevation: 5,
         },
-        tabBarItemStyle: { borderRadius: 18, marginHorizontal: 0 },
+        tabBarItemStyle: { borderRadius: 16, marginHorizontal: 0 },
         tabBarLabelStyle: { fontSize: 10, lineHeight: 14, fontFamily: Design.fonts.bold, marginTop: 1, letterSpacing: -0.35 },
         tabBarIconStyle: { marginTop: 1 },
         headerShown: false,
