@@ -57,7 +57,7 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 16 },
   headerText: { flex: 1, gap: 4 },
   eyebrow: { color: Design.colors.primary, fontSize: 12, lineHeight: 17, fontFamily: Design.fonts.bold, letterSpacing: 0.2 },
-  title: { color: Design.colors.ink, ...Design.type.display, fontFamily: Design.fonts.bold },
+  title: { color: Design.colors.ink, ...Design.type.title, fontFamily: Design.fonts.bold },
   errorBanner: { borderRadius: Design.radius.medium, backgroundColor: Design.colors.dangerSoft, padding: 14, gap: 3, borderWidth: 1, borderColor: '#E9C7C1' },
   errorTitle: { color: Design.colors.danger, fontSize: 13, lineHeight: 18, fontFamily: Design.fonts.bold },
   errorText: { color: Design.colors.inkSoft, fontSize: 12, lineHeight: 18, fontFamily: Design.fonts.regular },

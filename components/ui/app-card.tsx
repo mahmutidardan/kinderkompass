@@ -29,6 +29,6 @@ export function AppCard({ children, tone = 'surface', style, compact = false, el
 }
 
 const styles = StyleSheet.create({
-  card: { borderRadius: Design.radius.large, padding: Design.spacing.lg, borderWidth: 1, borderColor: 'rgba(72, 61, 77, 0.045)' },
+  card: { borderRadius: Design.radius.large, padding: Design.spacing.lg, borderWidth: 1, borderColor: Design.colors.border },
   compact: { padding: Design.spacing.md },
 });

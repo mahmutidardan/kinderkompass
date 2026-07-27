@@ -17,7 +17,7 @@ type Props = {
 };
 
 const backgrounds: Record<ButtonVariant, string> = {
-  primary: Design.colors.primaryDark,
+  primary: Design.colors.primary,
   secondary: Design.colors.surface,
   soft: Design.colors.primarySoft,
   danger: Design.colors.danger,

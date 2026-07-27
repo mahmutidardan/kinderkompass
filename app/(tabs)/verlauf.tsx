@@ -123,7 +123,7 @@ export default function VerlaufScreen() {
             </View>
           </View>
 
-          <LinearGradient colors={['#FFFFFF', '#F3F0FA']} style={styles.chartCard}>
+          <LinearGradient colors={[Design.colors.surface, Design.colors.primarySoft]} style={styles.chartCard}>
             <View style={styles.cardHeader}>
               <View>
                 <Text style={styles.cardTitle}>Temperatur</Text>
@@ -144,10 +144,10 @@ export default function VerlaufScreen() {
                 <View style={styles.lineChart} onLayout={(event) => setChartWidth(event.nativeEvent.layout.width)}>
                 <Svg width="100%" height={chartHeight} viewBox={`0 0 ${chartWidth} ${chartHeight}`}>
                   <Defs><SvgLinearGradient id="temperatureArea" x1="0" y1="0" x2="0" y2="1"><Stop offset="0" stopColor={Design.colors.primary} stopOpacity="0.28" /><Stop offset="1" stopColor={Design.colors.primary} stopOpacity="0.02" /></SvgLinearGradient></Defs>
-                  <Rect x={chartPadding.left} y={chartPadding.top} width={plotWidth} height={temperatureY(feverFrom) - chartPadding.top} fill="#FCE9E7" rx="8" />
-                  <Rect x={chartPadding.left} y={temperatureY(feverFrom)} width={plotWidth} height={temperatureY(37.6) - temperatureY(feverFrom)} fill="#FBF1D8" />
-                  <Rect x={chartPadding.left} y={temperatureY(37.6)} width={plotWidth} height={temperatureY(36.5) - temperatureY(37.6)} fill="#E8F3EC" />
-                  <Rect x={chartPadding.left} y={temperatureY(36.5)} width={plotWidth} height={chartPadding.top + plotHeight - temperatureY(36.5)} fill="#E9F1F8" rx="8" />
+                  <Rect x={chartPadding.left} y={chartPadding.top} width={plotWidth} height={temperatureY(feverFrom) - chartPadding.top} fill={Design.colors.temperatureFever} rx="8" />
+                  <Rect x={chartPadding.left} y={temperatureY(feverFrom)} width={plotWidth} height={temperatureY(37.6) - temperatureY(feverFrom)} fill={Design.colors.temperatureElevated} />
+                  <Rect x={chartPadding.left} y={temperatureY(37.6)} width={plotWidth} height={temperatureY(36.5) - temperatureY(37.6)} fill={Design.colors.temperatureNormal} />
+                  <Rect x={chartPadding.left} y={temperatureY(36.5)} width={plotWidth} height={chartPadding.top + plotHeight - temperatureY(36.5)} fill={Design.colors.temperatureLow} rx="8" />
                   {[35, 38, 41].map((value) => <Line key={value} x1={chartPadding.left} x2={chartPadding.left + plotWidth} y1={temperatureY(value)} y2={temperatureY(value)} stroke="#FFFFFF" strokeWidth="1" strokeDasharray="4 5" />)}
                   {[35, 38, 41].map((value) => <SvgText key={`label-${value}`} x="1" y={temperatureY(value) + 4} fill="#746F7A" fontSize="11">{value}°</SvgText>)}
                   {areaPath ? <Path d={areaPath} fill="url(#temperatureArea)" /> : null}
@@ -164,7 +164,7 @@ export default function VerlaufScreen() {
             )}
           </LinearGradient>
 
-          <LinearGradient colors={['#FFF8F4', '#F7EFF4']} style={styles.medChartCard}>
+          <LinearGradient colors={[Design.colors.surface, Design.colors.accentSoft]} style={styles.medChartCard}>
             <View style={styles.cardHeader}><View><Text style={styles.cardTitle}>Medikamentenverlauf</Text><Text style={styles.cardMeta}>{recentMeds.length ? `Letzte ${recentMeds.length} dokumentierte Gaben` : 'Noch keine Gabe dokumentiert'}</Text></View><InfoButton title="Medikamentenverlauf" text="Die Zeitleiste zeigt, wann welches Medikament mit welcher eingetragenen Menge verabreicht wurde." /></View>
             {recentMeds.length === 0 ? <View style={styles.medEmpty}><Text style={styles.emptyText}>Dokumentierte Medikamentengaben erscheinen hier als Zeitleiste.</Text></View> : <View style={styles.medTimeline}>{recentMeds.map((item, index) => (
               <View key={item.id} style={styles.medTimelineRow}>
@@ -217,7 +217,7 @@ const styles = StyleSheet.create({
   statIcon: { width: 42, height: 42, borderRadius: 16, alignItems: 'center', justifyContent: 'center', marginBottom: 11 },
   statValue: { color: Design.colors.ink, fontSize: 25, lineHeight: 31, fontFamily: Design.fonts.bold, letterSpacing: -0.5 },
   statLabel: { color: Design.colors.inkSoft, fontSize: 12, lineHeight: 17, fontFamily: Design.fonts.regular },
-  chartCard: { borderRadius: Design.radius.hero, padding: 21, gap: 19, borderWidth: 1, borderColor: 'rgba(72,61,77,0.045)', ...Design.shadow.card },
+  chartCard: { borderRadius: Design.radius.hero, padding: 21, gap: 19, borderWidth: 1, borderColor: Design.colors.border, ...Design.shadow.card },
   cardHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
   chartHeaderActions: { flexDirection: 'row', alignItems: 'center', gap: 9 },
   cardTitle: { color: Design.colors.ink, ...Design.type.section, fontFamily: Design.fonts.bold },
@@ -230,7 +230,7 @@ const styles = StyleSheet.create({
   selectedMeta: { color: Design.colors.inkSoft, fontSize: 12, lineHeight: 17, fontFamily: Design.fonts.regular, marginTop: 2 },
   selectedStatus: { fontSize: 12, lineHeight: 17, fontFamily: Design.fonts.bold, textAlign: 'right' },
   chartEmpty: { height: 150, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 20 },
-  medChartCard: { borderRadius: Design.radius.hero, padding: 21, gap: 17, borderWidth: 1, borderColor: 'rgba(72,61,77,0.045)', ...Design.shadow.card },
+  medChartCard: { borderRadius: Design.radius.hero, padding: 21, gap: 17, borderWidth: 1, borderColor: Design.colors.border, ...Design.shadow.card },
   medEmpty: { minHeight: 100, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 18 },
   medTimeline: { paddingTop: 2 },
   medTimelineRow: { minHeight: 67, flexDirection: 'row', alignItems: 'stretch' },
@@ -254,7 +254,7 @@ const styles = StyleSheet.create({
   deleteButton: { flex: 1 },
   countPill: { minWidth: 24, height: 24, borderRadius: 12, backgroundColor: Design.colors.primarySoft, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 7 },
   countText: { color: Design.colors.primary, fontSize: 11, fontFamily: Design.fonts.extraBold },
-  list: { backgroundColor: Design.colors.surface, borderRadius: Design.radius.large, paddingHorizontal: 17, borderWidth: 1, borderColor: 'rgba(72,61,77,0.045)', ...Design.shadow.card },
+  list: { backgroundColor: Design.colors.surface, borderRadius: Design.radius.large, paddingHorizontal: 17, borderWidth: 1, borderColor: Design.colors.border, ...Design.shadow.card },
   row: { flexDirection: 'row', alignItems: 'center', minHeight: 96, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: Design.colors.border },
   lastRow: { borderBottomWidth: 0 },
   marker: { width: 40, height: 40, borderRadius: 14, alignItems: 'center', justifyContent: 'center', marginRight: 12 },

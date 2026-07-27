@@ -16,6 +16,12 @@ Pro Viewport gibt es eine klare Hauptaktion. Sekundäre Funktionen bleiben errei
 
 Die verbindliche Quelle ist `constants/design.ts`.
 
+### Terra-Referenz
+
+Die in `docs/stitch/gentle-child-health-tracker/` hinterlegten Stitch-Screens sind die verbindliche Stilreferenz für neue und überarbeitete Produktoberflächen. Übernommen werden ihre Prinzipien, nicht ihr HTML: warme Cremeflächen, gedämpfte Grün- und Pfirsichtöne, klar gegliederte Karten, großzügiger Weißraum und eine ruhige, handlungsorientierte Hierarchie.
+
+Neue Funktionen nutzen zuerst die vorhandenen Primitives aus `components/ui/` und Werte aus `constants/design.ts`. Neue, visuell ähnliche Bausteine werden als wiederverwendbare Primitive ergänzt, statt pro Screen nachgebaut zu werden.
+
 ### Farben
 
 - `background` und `surface` bilden die warme, ruhige Basis.

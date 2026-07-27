@@ -201,7 +201,7 @@ const styles = StyleSheet.create({
   successBanner: { borderRadius: Design.radius.medium, backgroundColor: Design.colors.sage, padding: 13, flexDirection: 'row', alignItems: 'center', gap: 10 },
   successText: { flex: 1, color: Design.colors.ink, fontSize: 13, lineHeight: 18, fontFamily: Design.fonts.bold },
   successClose: { width: 44, height: 44, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.62)' },
-  childrenCard: { backgroundColor: Design.colors.surface, borderRadius: Design.radius.large, paddingHorizontal: 17, borderWidth: 1, borderColor: 'rgba(72,61,77,0.045)', ...Design.shadow.card },
+  childrenCard: { backgroundColor: Design.colors.surface, borderRadius: Design.radius.large, paddingHorizontal: 17, borderWidth: 1, borderColor: Design.colors.border, ...Design.shadow.card },
   childRow: { flexDirection: 'row', alignItems: 'center', minHeight: 92, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: Design.colors.border },
   lastRow: { borderBottomWidth: 0 },
   childMain: { flex: 1, flexDirection: 'row', alignItems: 'center', alignSelf: 'stretch' },

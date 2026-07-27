@@ -93,7 +93,7 @@ export default function MedikamenteScreen() {
   return (
     <AppShell eyebrow="Deine Hausapotheke" title="Medikamente">
       {feedback ? <View accessibilityLiveRegion="polite" style={styles.feedback}><IconSymbol name="checkmark" size={18} color={Design.colors.sageStrong} /><Text style={styles.feedbackText}>{feedback}</Text><Pressable accessibilityRole="button" accessibilityLabel="Hinweis schließen" onPress={() => setFeedback(undefined)} style={styles.feedbackClose}><IconSymbol name="xmark" size={17} color={Design.colors.inkSoft} /></Pressable></View> : null}
-      <LinearGradient colors={['#F9E8E2', '#F1EAF7']} style={styles.hero}>
+      <LinearGradient colors={[Design.colors.accentSoft, Design.colors.primarySoft]} style={styles.hero}>
         <View style={styles.heroIcon}><IconSymbol name="cross.case.fill" size={28} color={Design.colors.peachStrong} /></View>
         <View style={styles.heroCopy}>
           <Text style={styles.heroTitle}>Einmal eintragen, schneller dokumentieren</Text>
