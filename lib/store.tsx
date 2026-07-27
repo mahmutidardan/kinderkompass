@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import React, { createContext, PropsWithChildren, useContext, useEffect, useMemo, useState } from 'react';
+import React, { createContext, PropsWithChildren, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
 import { readProtectedState, storageProtection, writeProtectedState } from '@/lib/secure-storage';
 import { supabase } from '@/lib/supabase';
@@ -141,21 +141,41 @@ function newId(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-export function StoreProvider({ children, storageScope = 'local-guest' }: PropsWithChildren<{ storageScope?: string }>) {
+function normalizeState(parsed: Partial<AppState>): AppState {
+  return {
+    ...initialState,
+    ...parsed,
+    children: parsed.children ?? [],
+    temperatures: parsed.temperatures ?? [],
+    medications: parsed.medications ?? [],
+    medicationInventory: parsed.medicationInventory ?? [],
+    doctorContacts: parsed.doctorContacts ?? [],
+    appointments: parsed.appointments ?? [],
+    temperatureReminderEnabled: parsed.temperatureReminderEnabled ?? Boolean(parsed.temperatureReminderHours),
+    nightAlarmTimes: parsed.nightAlarmTimes ?? [],
+    nightNotificationIds: parsed.nightNotificationIds ?? [],
+  };
+}
+
+export function StoreProvider({ children, storageScope = 'local-guest', legacyStorageScope, cloudFamilyId, cloudUserId }: PropsWithChildren<{ storageScope?: string; legacyStorageScope?: string; cloudFamilyId?: string; cloudUserId?: string }>) {
   const storageKey = `${STORAGE_KEY}/${storageScope}`;
   const [state, setState] = useState<AppState>(initialState);
   const [hydrated, setHydrated] = useState(false);
   const [storageError, setStorageError] = useState<string>();
   const [syncStatus, setSyncStatus] = useState<Store['syncStatus']>('local');
   const [clock, setClock] = useState(() => Date.now());
+  const lastSyncedState = useRef<string | undefined>(undefined);
 
   useEffect(() => {
     let active = true;
-    const cloudUserId = storageScope.startsWith('google-') ? storageScope.slice('google-'.length) : undefined;
     const localState = readProtectedState(storageKey, storageScope)
-      .then(async (stored) => stored ?? (storageScope === 'local-guest' ? AsyncStorage.getItem(STORAGE_KEY) : null));
-    const cloudState = cloudUserId && supabase
-      ? supabase.from('user_states').select('state').eq('user_id', cloudUserId).maybeSingle()
+      .then(async (stored) => stored
+        ?? (legacyStorageScope ? readProtectedState(`${STORAGE_KEY}/${legacyStorageScope}`, legacyStorageScope) : null)
+        ?? (storageScope === 'local-guest' ? AsyncStorage.getItem(STORAGE_KEY) : null));
+    const cloudState = cloudFamilyId && supabase
+      ? supabase.from('family_states').select('state').eq('family_id', cloudFamilyId).maybeSingle()
+      : cloudUserId && supabase
+        ? supabase.from('user_states').select('state').eq('user_id', cloudUserId).maybeSingle()
       : Promise.resolve(undefined);
     Promise.all([localState, cloudState])
       .then(([stored, cloudResult]) => {
@@ -164,19 +184,8 @@ export function StoreProvider({ children, storageScope = 'local-guest' }: PropsW
         const source = cloudValue ? JSON.stringify(cloudValue) : stored;
         if (!source) return;
         const parsed = JSON.parse(source) as Partial<AppState>;
-        setState({
-          ...initialState,
-          ...parsed,
-          children: parsed.children ?? [],
-          temperatures: parsed.temperatures ?? [],
-          medications: parsed.medications ?? [],
-          medicationInventory: parsed.medicationInventory ?? [],
-          doctorContacts: parsed.doctorContacts ?? [],
-          appointments: parsed.appointments ?? [],
-          temperatureReminderEnabled: parsed.temperatureReminderEnabled ?? Boolean(parsed.temperatureReminderHours),
-          nightAlarmTimes: parsed.nightAlarmTimes ?? [],
-          nightNotificationIds: parsed.nightNotificationIds ?? [],
-        });
+        lastSyncedState.current = cloudValue ? JSON.stringify(normalizeState(parsed)) : undefined;
+        setState(normalizeState(parsed));
         if (cloudValue) setSyncStatus('synced');
       })
       .catch(() => {
@@ -188,19 +197,24 @@ export function StoreProvider({ children, storageScope = 'local-guest' }: PropsW
     return () => {
       active = false;
     };
-  }, [storageKey]);
+  }, [cloudFamilyId, cloudUserId, legacyStorageScope, storageKey, storageScope]);
 
   useEffect(() => {
     if (!hydrated) return undefined;
-    const cloudUserId = storageScope.startsWith('google-') ? storageScope.slice('google-'.length) : undefined;
     const timeout = setTimeout(async () => {
+      const serializedState = JSON.stringify(state);
       try {
-        await writeProtectedState(storageKey, storageScope, JSON.stringify(state));
+        await writeProtectedState(storageKey, storageScope, serializedState);
         setStorageError(undefined);
       } catch {
         setStorageError('Änderungen konnten nicht dauerhaft auf diesem Gerät gespeichert werden.');
       }
-      if (cloudUserId && supabase) {
+      if (cloudFamilyId && cloudUserId && supabase && serializedState !== lastSyncedState.current) {
+        setSyncStatus('syncing');
+        const { error } = await supabase.rpc('update_family_state', { target_family_id: cloudFamilyId, next_state: state });
+        if (!error) lastSyncedState.current = serializedState;
+        setSyncStatus(error ? 'error' : 'synced');
+      } else if (cloudUserId && supabase && !cloudFamilyId) {
         setSyncStatus('syncing');
         const { error } = await supabase.from('user_states').upsert({ user_id: cloudUserId, state, updated_at: new Date().toISOString() });
         setSyncStatus(error ? 'error' : 'synced');
@@ -209,7 +223,26 @@ export function StoreProvider({ children, storageScope = 'local-guest' }: PropsW
       }
     }, 450);
     return () => clearTimeout(timeout);
-  }, [hydrated, state, storageKey, storageScope]);
+  }, [cloudFamilyId, cloudUserId, hydrated, state, storageKey, storageScope]);
+
+  useEffect(() => {
+    if (!cloudFamilyId || !supabase) return undefined;
+    const realtimeClient = supabase;
+    const channel = realtimeClient
+      .channel(`family-state-${cloudFamilyId}`)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'family_states', filter: `family_id=eq.${cloudFamilyId}` }, (payload) => {
+        const remoteState = (payload.new as { state?: Partial<AppState> }).state;
+        if (!remoteState) return;
+        const normalized = normalizeState(remoteState);
+        const serialized = JSON.stringify(normalized);
+        if (serialized === lastSyncedState.current) return;
+        lastSyncedState.current = serialized;
+        setState(normalized);
+        setSyncStatus('synced');
+      })
+      .subscribe();
+    return () => { realtimeClient.removeChannel(channel); };
+  }, [cloudFamilyId]);
 
   useEffect(() => {
     if (!state.nightAlarmActiveUntil) return undefined;

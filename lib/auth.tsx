@@ -86,6 +86,23 @@ export function AuthProvider({ children }: PropsWithChildren) {
     };
   }, []);
 
+  useEffect(() => {
+    if (!supabase || Platform.OS === 'web') return undefined;
+    async function handleAuthUrl(url?: string | null) {
+      if (!url) return;
+      const code = getNativeAuthCode(url);
+      if (!code) return;
+      const exchange = await supabase?.auth.exchangeCodeForSession(code);
+      if (exchange?.error) return;
+      setSession(exchange?.data.session ?? null);
+      setLocalMode(undefined);
+      await AsyncStorage.removeItem(GUEST_KEY);
+    }
+    Linking.getInitialURL().then(handleAuthUrl).catch(() => undefined);
+    const subscription = Linking.addEventListener('url', ({ url }) => { handleAuthUrl(url).catch(() => undefined); });
+    return () => subscription.remove();
+  }, []);
+
   const value = useMemo<AuthContextValue>(() => ({
     ready,
     authenticated: Boolean(session || localMode),

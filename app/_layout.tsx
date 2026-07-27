@@ -31,6 +31,7 @@ import { AuthProvider, useAuth } from '@/lib/auth';
 import { StoreProvider, useStore } from '@/lib/store';
 import { configureNotifications } from '@/lib/notifications';
 import { SubscriptionProvider, useSubscription } from '@/lib/subscription';
+import { FamilySharingProvider, useFamilySharing } from '@/lib/family-sharing';
 
 export const unstable_settings = {
   anchor: '(tabs)',
@@ -51,13 +52,23 @@ export default function RootLayout() {
 function ScopedApp() {
   const { ready, storageScope } = useAuth();
   if (!ready) return <LoadingState label="Zugang wird vorbereitet" />;
-  return <SubscriptionProvider key={storageScope} storageScope={storageScope}><StoreProvider storageScope={storageScope}><AppNavigator /></StoreProvider></SubscriptionProvider>;
+  return <SubscriptionProvider key={storageScope} storageScope={storageScope}><FamilySharingProvider><FamilyScopedStore storageScope={storageScope} /></FamilySharingProvider></SubscriptionProvider>;
+}
+
+function FamilyScopedStore({ storageScope }: { storageScope: string }) {
+  const { user } = useAuth();
+  const sharing = useFamilySharing();
+  if (!sharing.ready) return <LoadingState label="Familienbereich wird geladen" />;
+  const sharedStorageScope = sharing.activeFamily ? `family-${sharing.activeFamily.id}` : storageScope;
+  return <StoreProvider key={sharedStorageScope} storageScope={sharedStorageScope} legacyStorageScope={sharing.activeFamily ? storageScope : undefined} cloudFamilyId={sharing.activeFamily?.id} cloudUserId={user?.id}><AppNavigator /></StoreProvider>;
 }
 
 function AppNavigator() {
   const { hydrated } = useStore();
   const { authenticated } = useAuth();
   const subscription = useSubscription();
+  const sharing = useFamilySharing();
+  const hasSharedGuestAccess = sharing.activeFamily?.role === 'guest';
   const [fontsLoaded] = useFonts({
     Manrope_400Regular,
     Manrope_500Medium,
@@ -93,7 +104,7 @@ function AppNavigator() {
         <Stack.Protected guard={authenticated}>
           <Stack.Screen name="paywall" options={{ headerShown: false }} />
         </Stack.Protected>
-        <Stack.Protected guard={authenticated && subscription.hasAccess}>
+        <Stack.Protected guard={authenticated && (subscription.hasAccess || hasSharedGuestAccess)}>
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="modal" options={{ presentation: 'modal', headerShown: false }} />
           <Stack.Screen name="logout" options={{ presentation: 'modal', headerShown: false }} />

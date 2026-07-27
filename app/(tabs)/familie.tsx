@@ -10,6 +10,7 @@ import { InfoButton } from '@/components/info-button';
 import { AppButton } from '@/components/ui/app-button';
 import { AppCard } from '@/components/ui/app-card';
 import { AppDateTimeInput } from '@/components/ui/app-date-time-input';
+import { AppDialog } from '@/components/ui/app-dialog';
 import { AppInput } from '@/components/ui/app-input';
 import { AppSectionHeading } from '@/components/ui/app-section-heading';
 import { IconSymbol } from '@/components/ui/icon-symbol';
@@ -19,11 +20,13 @@ import { Child, ChildGender, useStore } from '@/lib/store';
 import { isValidBirthDate } from '@/lib/date-time';
 import { cancelReminders } from '@/lib/notifications';
 import { useSubscription } from '@/lib/subscription';
+import { FamilyMember, useFamilySharing } from '@/lib/family-sharing';
 
 export default function FamilieScreen() {
   const { configured, guest, localMode, user } = useAuth();
   const store = useStore();
   const subscription = useSubscription();
+  const sharing = useFamilySharing();
   const { children, activeChildId, addChild, updateChild, deleteChild, setActiveChild, storageProtection, syncStatus } = store;
   const [showForm, setShowForm] = useState(children.length === 0);
   const [name, setName] = useState('');
@@ -42,7 +45,14 @@ export default function FamilieScreen() {
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [profileFeedback, setProfileFeedback] = useState<string>();
   const [pendingDeleteId, setPendingDeleteId] = useState<string>();
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteError, setInviteError] = useState<string>();
+  const [inviteFeedback, setInviteFeedback] = useState<string>();
+  const [pendingMemberRemoval, setPendingMemberRemoval] = useState<FamilyMember>();
   const pendingDeleteChild = children.find((child) => child.id === pendingDeleteId);
+  const canManageProfiles = !sharing.enabled || sharing.canManageFamily;
+  const usesSharedFamily = Boolean(sharing.enabled && sharing.activeFamily);
 
   useEffect(() => {
     if (children.length === 0) setShowForm(true);
@@ -150,6 +160,34 @@ export default function FamilieScreen() {
     setProfileFeedback('Kinderprofil und zugehörige Einträge gelöscht.');
   }
 
+  async function sendFamilyInvite() {
+    const email = inviteEmail.trim().toLowerCase();
+    if (!/^\S+@\S+\.\S+$/.test(email)) {
+      setInviteError('Bitte trage eine gültige E-Mail-Adresse ein.');
+      return;
+    }
+    setInviteError(undefined);
+    try {
+      const delivery = await sharing.inviteMember(email);
+      setInviteOpen(false);
+      setInviteEmail('');
+      setInviteFeedback(delivery === 'email-sent' ? 'Einladung wurde per E-Mail gesendet.' : 'Einladung ist hinterlegt. Die Person kann sie nach der Anmeldung annehmen.');
+    } catch (error) {
+      setInviteError(error instanceof Error ? error.message : 'Die Einladung konnte nicht gesendet werden.');
+    }
+  }
+
+  async function confirmMemberRemoval() {
+    if (!pendingMemberRemoval) return;
+    try {
+      await sharing.removeMember(pendingMemberRemoval.userId);
+      setInviteFeedback(`${pendingMemberRemoval.displayName || pendingMemberRemoval.email} wurde aus der Familie entfernt.`);
+      setPendingMemberRemoval(undefined);
+    } catch {
+      setInviteFeedback('Die Person konnte nicht entfernt werden.');
+    }
+  }
+
   return (
     <AppShell eyebrow="Profile & Einstellungen" title="Deine Familie">
       {profileFeedback ? <View accessibilityLiveRegion="polite" style={styles.successBanner}><IconSymbol name="checkmark" size={18} color={Design.colors.sageStrong} /><Text style={styles.successText}>{profileFeedback}</Text><Pressable accessibilityRole="button" accessibilityLabel="Hinweis schließen" onPress={() => setProfileFeedback(undefined)} style={styles.successClose}><IconSymbol name="xmark" size={17} color={Design.colors.inkSoft} /></Pressable></View> : null}
@@ -166,24 +204,24 @@ export default function FamilieScreen() {
                     <Text style={styles.childMeta}>{[child.gender === 'male' ? 'Männlich' : child.gender === 'female' ? 'Weiblich' : undefined, child.birthDate ? `Geboren am ${child.birthDate}` : 'Geburtsdatum nicht hinterlegt'].filter(Boolean).join(' · ')}</Text>
                   </View>
                 </Pressable>
-                <View style={styles.profileActions}>
+                {canManageProfiles ? <View style={styles.profileActions}>
                   <Pressable accessibilityRole="button" accessibilityLabel={`${child.name} bearbeiten`} onPress={() => beginEdit(child)} style={styles.iconButton}>
                     <IconSymbol name="pencil" size={17} color={Design.colors.primaryDark} />
                   </Pressable>
                   <Pressable accessibilityRole="button" accessibilityLabel={`${child.name} löschen`} onPress={() => { setPendingDeleteId(child.id); setEditingChildId(undefined); setShowForm(false); }} style={[styles.iconButton, styles.deleteIconButton]}>
                     <IconSymbol name="trash.fill" size={17} color={Design.colors.danger} />
                   </Pressable>
-                </View>
+                </View> : null}
               </View>
             );
           })}
         </View>
       ) : null}
 
-      {editingChildId ? (
+      {editingChildId && canManageProfiles ? (
         <AppCard style={styles.formCard}>
           <View style={styles.formHeadingRow}>
-            <View style={styles.formHeadingCopy}><View><Text style={styles.cardTitle}>Profil bearbeiten</Text><Text style={styles.cardCopy}>Änderungen gelten nur auf diesem Gerät.</Text></View><InfoButton title="Profil bearbeiten" text="Name und Geburtsdatum werden nur für dieses lokale Kinderprofil verwendet." /></View>
+            <View style={styles.formHeadingCopy}><View><Text style={styles.cardTitle}>Profil bearbeiten</Text><Text style={styles.cardCopy}>{usesSharedFamily ? 'Änderungen werden mit der Familie synchronisiert.' : 'Änderungen gelten nur auf diesem Gerät.'}</Text></View><InfoButton title="Profil bearbeiten" text={usesSharedFamily ? 'Besitzer können Name und Geburtsdatum für den gemeinsamen Familienbereich bearbeiten.' : 'Name und Geburtsdatum werden nur für dieses lokale Kinderprofil verwendet.'} /></View>
             <Pressable accessibilityLabel="Bearbeitung schließen" onPress={() => setEditingChildId(undefined)} style={styles.closeButton}><IconSymbol name="xmark" size={18} color={Design.colors.inkSoft} /></Pressable>
           </View>
           <AppInput error={formErrors.editName} label="Name" value={editName} onChangeText={setEditName} placeholder="Name" autoFocus />
@@ -207,12 +245,12 @@ export default function FamilieScreen() {
 
       {pendingDeleteChild ? (
         <AppCard tone="danger" elevated={false} style={styles.deleteCard}>
-          <View style={styles.deleteHeader}><View style={styles.deleteWarning}><IconSymbol name="triangle-alert" size={20} color={Design.colors.danger} /></View><View style={styles.deleteCopy}><Text style={styles.deleteTitle}>{pendingDeleteChild.name} löschen?</Text><Text style={styles.deleteText}>Das Profil und alle zugehörigen Messungen und Medikamenteneinträge werden dauerhaft von diesem Gerät entfernt.</Text></View></View>
+          <View style={styles.deleteHeader}><View style={styles.deleteWarning}><IconSymbol name="triangle-alert" size={20} color={Design.colors.danger} /></View><View style={styles.deleteCopy}><Text style={styles.deleteTitle}>{pendingDeleteChild.name} löschen?</Text><Text style={styles.deleteText}>Das Profil und alle zugehörigen Messungen und Medikamenteneinträge werden dauerhaft {usesSharedFamily ? 'aus dem gemeinsamen Familienbereich' : 'von diesem Gerät'} entfernt.</Text></View></View>
           <View style={styles.deleteButtons}><AppButton label="Abbrechen" variant="secondary" onPress={() => setPendingDeleteId(undefined)} style={styles.flexButton} /><AppButton label="Profil löschen" variant="danger" onPress={confirmDelete} style={styles.flexButton} /></View>
         </AppCard>
       ) : null}
 
-      {showForm && !editingChildId && !pendingDeleteChild ? (
+      {showForm && !editingChildId && !pendingDeleteChild && canManageProfiles ? (
         <AppCard style={styles.formCard}>
           <View style={styles.formIcon}><IconSymbol name="heart" size={25} color={Design.colors.primary} /></View>
           <View style={styles.formHeadingCopy}><Text style={styles.cardTitle}>Wer darf mit rein?</Text><InfoButton title="Kinderprofil" text="Lege hier ein Profil pro Kind an. Das Geburtsdatum wird außerdem für die Temperatur- und U-Untersuchungsorientierung genutzt." /></View>
@@ -235,19 +273,53 @@ export default function FamilieScreen() {
           <AppButton label="Profil speichern" onPress={submit} disabled={!name.trim()} />
           {children.length > 0 ? <Pressable onPress={() => setShowForm(false)}><Text style={styles.cancel}>Abbrechen</Text></Pressable> : null}
         </AppCard>
-      ) : !editingChildId && !pendingDeleteChild ? (
+      ) : !editingChildId && !pendingDeleteChild && canManageProfiles ? (
         <AppButton label="Weiteres Kinderprofil" variant="soft" onPress={() => setShowForm(true)} icon={<IconSymbol name="plus" size={19} color={Design.colors.primaryDark} />} />
       ) : null}
 
-      <AppSectionHeading title="Fieberwache Plus" subtitle="Testzeitraum und Tarif" infoTitle="Fieberwache Plus" infoText="Du kannst alle Funktionen sieben Tage kostenlos testen. Danach benötigst du einen Monats- oder Jahrestarif." />
-      <AppCard tone="sage" elevated={false} compact style={styles.subscriptionCard}>
-        <View style={styles.subscriptionIcon}><IconSymbol name="sparkles" size={21} color={Design.colors.primaryDark} /></View>
-        <View style={styles.subscriptionCopy}>
-          <Text style={styles.subscriptionTitle}>{subscription.previewSubscriptionActive ? 'Test-Abo aktiv' : subscription.trialActive ? 'Kostenloser Test aktiv' : 'Tarif auswählen'}</Text>
-          <Text style={styles.subscriptionMeta}>{subscription.previewSubscriptionActive ? (subscription.selectedPlan === 'annual' ? '12-Monats-Tarif · Testmodus' : 'Monatstarif · Testmodus') : subscription.trialActive ? `Noch ${subscription.trialDaysRemaining} ${subscription.trialDaysRemaining === 1 ? 'Tag' : 'Tage'} kostenlos` : '7 Tage kostenlos testen'}</Text>
-        </View>
-        <AppButton label="Tarife" variant="secondary" compact onPress={() => router.push('/paywall' as Href)} />
-      </AppCard>
+      <AppSectionHeading title="Familienzugriff" subtitle="Gemeinsam dokumentieren und informiert bleiben" infoTitle="Familienzugriff" infoText="Der Besitzer kann weitere Personen per E-Mail einladen. Gäste sehen den gemeinsamen Familienbereich und dürfen Einträge dokumentieren, aber keine Kinderprofile, Einladungen oder Abos verwalten." />
+      {inviteFeedback ? <View accessibilityLiveRegion="polite" style={styles.successBanner}><IconSymbol name="checkmark" size={18} color={Design.colors.sageStrong} /><Text style={styles.successText}>{inviteFeedback}</Text><Pressable accessibilityRole="button" accessibilityLabel="Hinweis schließen" onPress={() => setInviteFeedback(undefined)} style={styles.successClose}><IconSymbol name="xmark" size={17} color={Design.colors.inkSoft} /></Pressable></View> : null}
+      {!sharing.enabled ? (
+        <AppCard tone="lavender" elevated={false} style={styles.sharingUnavailable}>
+          <View style={styles.sharingIcon}><IconSymbol name="person.2.fill" size={22} color={Design.colors.primaryDark} /></View>
+          <View style={styles.sharingCopy}><Text style={styles.sharingTitle}>Online-Konto erforderlich</Text><Text style={styles.sharingText}>Einladungen und gemeinsamer Datenzugriff funktionieren nach der Anmeldung mit einem konfigurierten Online-Konto. Der lokale Testzugang bleibt nur auf diesem Gerät.</Text></View>
+        </AppCard>
+      ) : (
+        <>
+          {sharing.error ? <View style={styles.sharingError}><Text style={styles.sharingErrorTitle}>Familienbereich nicht erreichbar</Text><Text style={styles.sharingText}>{sharing.error}</Text><AppButton label="Erneut versuchen" compact variant="secondary" onPress={sharing.refresh} /></View> : null}
+          {sharing.pendingInvites.map((invite) => (
+            <AppCard key={invite.id} tone="sage" elevated={false} style={styles.pendingInviteCard}>
+              <View style={styles.sharingIcon}><IconSymbol name="paperplane.fill" size={20} color={Design.colors.primaryDark} /></View>
+              <View style={styles.sharingCopy}><Text style={styles.sharingTitle}>Einladung zu {invite.familyName}</Text><Text style={styles.sharingText}>Du kannst diesem gemeinsamen Familienbereich beitreten.</Text></View>
+              <AppButton label="Annehmen" compact onPress={() => sharing.acceptInvite(invite.id).catch(() => setInviteFeedback('Die Einladung konnte nicht angenommen werden.'))} />
+            </AppCard>
+          ))}
+          {sharing.families.length > 1 ? <View accessibilityRole="radiogroup" style={styles.familySwitcher}>{sharing.families.map((family) => <Pressable accessibilityRole="radio" accessibilityState={{ checked: family.id === sharing.activeFamily?.id }} key={family.id} onPress={() => sharing.setActiveFamily(family.id)} style={[styles.familyChoice, family.id === sharing.activeFamily?.id && styles.familyChoiceActive]}><Text style={[styles.familyChoiceText, family.id === sharing.activeFamily?.id && styles.familyChoiceTextActive]}>{family.name}</Text></Pressable>)}</View> : null}
+          <AppCard style={styles.membersCard}>
+            <View style={styles.membersHeader}><View><Text style={styles.sharingTitle}>{sharing.activeFamily?.name ?? 'Meine Familie'}</Text><Text style={styles.sharingText}>{sharing.members.length} {sharing.members.length === 1 ? 'Person' : 'Personen'} mit Zugriff</Text></View>{sharing.canManageFamily ? <AppButton label="Person einladen" compact variant="soft" onPress={() => setInviteOpen(true)} icon={<IconSymbol name="plus" size={17} color={Design.colors.primaryDark} />} /> : null}</View>
+            <View style={styles.memberList}>{sharing.members.map((member, index) => (
+              <View key={member.userId} style={[styles.memberRow, index < sharing.members.length - 1 && styles.memberDivider]}>
+                <View style={styles.memberAvatar}><Text style={styles.memberInitial}>{(member.displayName || member.email).slice(0, 1).toUpperCase()}</Text></View>
+                <View style={styles.sharingCopy}><View style={styles.memberNameRow}><Text style={styles.memberName}>{member.displayName || member.email.split('@')[0]}</Text><View style={styles.rolePill}><Text style={styles.roleText}>{member.role === 'owner' ? 'BESITZER' : 'GAST'}</Text></View></View><Text style={styles.memberEmail}>{member.email}</Text></View>
+                {sharing.canManageFamily && member.role === 'guest' ? <Pressable accessibilityRole="button" accessibilityLabel={`${member.displayName || member.email} entfernen`} onPress={() => setPendingMemberRemoval(member)} style={styles.removeMemberButton}><IconSymbol name="trash.fill" size={16} color={Design.colors.danger} /></Pressable> : null}
+              </View>
+            ))}</View>
+            {sharing.canManageFamily && sharing.invites.length > 0 ? <View style={styles.openInvites}><Text style={styles.openInvitesTitle}>Offene Einladungen</Text>{sharing.invites.map((invite) => <View key={invite.id} style={styles.inviteRow}><View style={styles.sharingCopy}><Text style={styles.memberName}>{invite.email}</Text><Text style={styles.memberEmail}>Noch nicht angenommen</Text></View><Pressable accessibilityRole="button" accessibilityLabel={`Einladung an ${invite.email} widerrufen`} onPress={() => sharing.revokeInvite(invite.id).catch(() => setInviteFeedback('Die Einladung konnte nicht widerrufen werden.'))} style={styles.removeMemberButton}><IconSymbol name="xmark" size={16} color={Design.colors.danger} /></Pressable></View>)}</View> : null}
+          </AppCard>
+        </>
+      )}
+
+      {sharing.activeFamily?.role !== 'guest' ? <>
+        <AppSectionHeading title="Fieberwache Plus" subtitle="Testzeitraum und Tarif" infoTitle="Fieberwache Plus" infoText="Du kannst alle Funktionen sieben Tage kostenlos testen. Danach benötigst du einen Monats- oder Jahrestarif." />
+        <AppCard tone="sage" elevated={false} compact style={styles.subscriptionCard}>
+          <View style={styles.subscriptionIcon}><IconSymbol name="sparkles" size={21} color={Design.colors.primaryDark} /></View>
+          <View style={styles.subscriptionCopy}>
+            <Text style={styles.subscriptionTitle}>{subscription.previewSubscriptionActive ? 'Test-Abo aktiv' : subscription.trialActive ? 'Kostenloser Test aktiv' : 'Tarif auswählen'}</Text>
+            <Text style={styles.subscriptionMeta}>{subscription.previewSubscriptionActive ? (subscription.selectedPlan === 'annual' ? '12-Monats-Tarif · Testmodus' : 'Monatstarif · Testmodus') : subscription.trialActive ? `Noch ${subscription.trialDaysRemaining} ${subscription.trialDaysRemaining === 1 ? 'Tag' : 'Tage'} kostenlos` : '7 Tage kostenlos testen'}</Text>
+          </View>
+          <AppButton label="Tarife" variant="secondary" compact onPress={() => router.push('/paywall' as Href)} />
+        </AppCard>
+      </> : null}
 
       <AppSectionHeading title="Konto & Sicherheit" subtitle="Zugang, Geräteschutz und Synchronisierung" infoTitle="Konto & Sicherheit" infoText="Auf iPhone und Android werden lokale App-Daten verschlüsselt. Im Browser liegen sie nur im jeweiligen Browserprofil. Mit konfiguriertem Online-Konto können sie zusätzlich synchronisiert werden." />
       <AppCard tone={guest ? 'sage' : 'lavender'} elevated={false} compact style={styles.accountCard}>
@@ -276,6 +348,13 @@ export default function FamilieScreen() {
         <View style={styles.lockIcon}><IconSymbol name="shield-check" size={21} color={Design.colors.sageStrong} /></View>
         <View style={styles.privacyCopyWrap}><Text style={styles.privacyTitle}>{storageProtection === 'encrypted-device' ? 'Lokal verschlüsselt' : 'Browserlokal gespeichert'}</Text><Text style={styles.privacyCopy}>{storageProtection === 'encrypted-device' ? 'Der lokale Datensatz wird mit einem gerätegebundenen Schlüssel verschlüsselt.' : 'Browserdaten sind nicht geräteverschlüsselt und können beim Löschen der Websitedaten verloren gehen.'}</Text></View>
       </AppCard>
+
+      <AppDialog visible={inviteOpen} title="Person einladen" subtitle="Die eingeladene Person erhält als Gast Zugriff auf Kinderprofile und gemeinsame Einträge." onClose={() => { setInviteOpen(false); setInviteError(undefined); }}>
+        <View style={styles.inviteDialogContent}><AppInput label="E-Mail-Adresse" value={inviteEmail} onChangeText={setInviteEmail} error={inviteError} placeholder="name@beispiel.de" keyboardType="email-address" autoCapitalize="none" autoCorrect={false} /><View style={styles.permissionNote}><IconSymbol name="shield-check" size={19} color={Design.colors.primaryDark} /><Text style={styles.permissionNoteText}>Gäste können Einträge sehen und hinzufügen, aber keine Personen einladen, Profile löschen oder das Abo verwalten.</Text></View><AppButton label="Einladung senden" onPress={sendFamilyInvite} disabled={!inviteEmail.trim()} /></View>
+      </AppDialog>
+      <AppDialog visible={Boolean(pendingMemberRemoval)} title="Gast entfernen?" subtitle={`${pendingMemberRemoval?.displayName || pendingMemberRemoval?.email || 'Diese Person'} verliert den Zugriff auf alle gemeinsamen Kinderprofile und Einträge.`} onClose={() => setPendingMemberRemoval(undefined)}>
+        <View style={styles.deleteButtons}><AppButton label="Abbrechen" variant="secondary" onPress={() => setPendingMemberRemoval(undefined)} style={styles.flexButton} /><AppButton label="Zugriff entfernen" variant="danger" onPress={confirmMemberRemoval} style={styles.flexButton} /></View>
+      </AppDialog>
     </AppShell>
   );
 }
@@ -376,6 +455,38 @@ const styles = StyleSheet.create({
   subscriptionCopy: { flex: 1, gap: 2 },
   subscriptionTitle: { color: Design.colors.ink, fontSize: 14, lineHeight: 19, fontFamily: Design.fonts.bold },
   subscriptionMeta: { color: Design.colors.inkSoft, fontSize: 12, lineHeight: 17, fontFamily: Design.fonts.regular },
+  sharingUnavailable: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
+  sharingIcon: { width: 42, height: 42, borderRadius: 15, flexShrink: 0, backgroundColor: 'rgba(255,255,255,0.65)', alignItems: 'center', justifyContent: 'center' },
+  sharingCopy: { flex: 1, gap: 2 },
+  sharingTitle: { color: Design.colors.ink, fontSize: 15, lineHeight: 20, fontFamily: Design.fonts.bold },
+  sharingText: { color: Design.colors.inkSoft, fontSize: 12, lineHeight: 18, fontFamily: Design.fonts.regular },
+  sharingError: { borderRadius: Design.radius.large, padding: 16, gap: 10, backgroundColor: Design.colors.dangerSoft },
+  sharingErrorTitle: { color: Design.colors.danger, fontSize: 14, lineHeight: 19, fontFamily: Design.fonts.bold },
+  pendingInviteCard: { flexDirection: 'row', alignItems: 'center', gap: 11 },
+  familySwitcher: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  familyChoice: { minHeight: 44, borderRadius: 15, paddingHorizontal: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: Design.colors.surface, borderWidth: 1, borderColor: Design.colors.border },
+  familyChoiceActive: { backgroundColor: Design.colors.primarySoft, borderColor: Design.colors.primary },
+  familyChoiceText: { color: Design.colors.inkSoft, fontSize: 12, fontFamily: Design.fonts.semiBold },
+  familyChoiceTextActive: { color: Design.colors.primaryDark, fontFamily: Design.fonts.bold },
+  membersCard: { gap: 14 },
+  membersHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
+  memberList: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: Design.colors.border },
+  memberRow: { minHeight: 68, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  memberDivider: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: Design.colors.border },
+  memberAvatar: { width: 40, height: 40, borderRadius: 15, backgroundColor: Design.colors.primarySoft, alignItems: 'center', justifyContent: 'center' },
+  memberInitial: { color: Design.colors.primaryDark, fontSize: 15, fontFamily: Design.fonts.bold },
+  memberNameRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6 },
+  memberName: { color: Design.colors.ink, fontSize: 13, lineHeight: 18, fontFamily: Design.fonts.bold },
+  memberEmail: { color: Design.colors.inkSoft, fontSize: 11, lineHeight: 16, fontFamily: Design.fonts.regular },
+  rolePill: { borderRadius: 9, paddingHorizontal: 7, paddingVertical: 3, backgroundColor: Design.colors.primarySoft },
+  roleText: { color: Design.colors.primaryDark, fontSize: 9, lineHeight: 12, fontFamily: Design.fonts.bold },
+  removeMemberButton: { width: 44, height: 44, borderRadius: 15, backgroundColor: Design.colors.dangerSoft, alignItems: 'center', justifyContent: 'center' },
+  openInvites: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: Design.colors.border, paddingTop: 12, gap: 8 },
+  openInvitesTitle: { color: Design.colors.inkSoft, fontSize: 11, lineHeight: 15, letterSpacing: 0.4, fontFamily: Design.fonts.bold },
+  inviteRow: { minHeight: 54, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  inviteDialogContent: { gap: 14 },
+  permissionNote: { borderRadius: Design.radius.medium, padding: 13, backgroundColor: Design.colors.primarySoft, flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+  permissionNoteText: { flex: 1, color: Design.colors.inkSoft, fontSize: 12, lineHeight: 18, fontFamily: Design.fonts.regular },
   accountIcon: { width: 42, height: 42, borderRadius: 15, backgroundColor: 'rgba(255,255,255,0.65)', alignItems: 'center', justifyContent: 'center' },
   accountCopy: { flex: 1, gap: 2 },
   accountName: { color: Design.colors.ink, fontSize: 14, lineHeight: 19, fontFamily: Design.fonts.bold },

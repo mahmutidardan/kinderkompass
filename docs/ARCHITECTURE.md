@@ -34,11 +34,14 @@ Secure Store / AsyncStorage / Supabase / Betriebssystem-Benachrichtigungen
 - `notifications.ts`: Gerätegerichtete Erinnerungen und Berechtigungen
 - `secure-storage.ts`: verschlüsselte native Speicherung und browserlokale Alternative
 - `auth.tsx` / `supabase.ts`: Sitzung, Google OAuth und optionale Cloud-Synchronisierung
+- `family-sharing.tsx`: gemeinsame Familienbereiche, Besitzer-/Gastrollen und Einladungsstatus
 - `use-connectivity.*`: plattformspezifische Verbindungszustände
 
 ## Datenfluss
 
 Screens lesen und ändern Zustand ausschließlich über die öffentlich vorgesehenen Store-Aktionen. Persistierung und optionale Synchronisierung bleiben hinter der Store-Grenze. Benachrichtigungen sind abgeleitete Betriebssystemaktionen; ein Fehler beim Planen darf den fachlichen Eintrag nicht unbemerkt verlieren.
+
+Bei einem Online-Konto gehört der fachliche Zustand zu einem Familienbereich statt zu einer einzelnen Benutzer-ID. Datenbank-RLS entscheidet, welche angemeldeten Mitglieder diesen Zustand lesen oder ändern dürfen. Einladungs-E-Mails werden nur über eine authentifizierte Edge Function versendet.
 
 ## Architekturregeln
 
