@@ -8,8 +8,12 @@ export type Child = {
   id: string;
   name: string;
   birthDate?: string;
+  gender?: ChildGender;
   avatar?: ChildAvatar;
+  photoUri?: string;
 };
+
+export type ChildGender = 'male' | 'female';
 
 export type ChildAvatar = {
   skinTone: string;
@@ -95,8 +99,8 @@ type Store = AppState & {
   storageProtection: 'encrypted-device' | 'browser-local';
   activeChild?: Child;
   nightAlarmActive: boolean;
-  addChild: (name: string, birthDate?: string, avatar?: ChildAvatar) => void;
-  updateChild: (id: string, name: string, birthDate?: string, avatar?: ChildAvatar) => void;
+  addChild: (name: string, birthDate?: string, gender?: ChildGender, avatar?: ChildAvatar, photoUri?: string) => void;
+  updateChild: (id: string, name: string, birthDate?: string, gender?: ChildGender, avatar?: ChildAvatar, photoUri?: string) => void;
   deleteChild: (id: string) => void;
   setActiveChild: (id: string) => void;
   setTemperatureReminderHours: (hours?: number) => void;
@@ -226,19 +230,19 @@ export function StoreProvider({ children, storageScope = 'local-guest' }: PropsW
       storageError,
       syncStatus,
       storageProtection,
-      addChild: (name, birthDate, avatar) => {
-        const child: Child = { id: newId('child'), name: name.trim(), birthDate: birthDate?.trim() || undefined, avatar };
+      addChild: (name, birthDate, gender, avatar, photoUri) => {
+        const child: Child = { id: newId('child'), name: name.trim(), birthDate: birthDate?.trim() || undefined, gender, avatar, photoUri: photoUri?.trim() || undefined };
         setState((current) => ({
           ...current,
           children: [...current.children, child],
           activeChildId: current.activeChildId ?? child.id,
         }));
       },
-      updateChild: (id, name, birthDate, avatar) => {
+      updateChild: (id, name, birthDate, gender, avatar, photoUri) => {
         setState((current) => ({
           ...current,
           children: current.children.map((child) => child.id === id
-            ? { ...child, name: name.trim(), birthDate: birthDate?.trim() || undefined, avatar: avatar ?? child.avatar }
+            ? { ...child, name: name.trim(), birthDate: birthDate?.trim() || undefined, gender: gender ?? child.gender, avatar: avatar ?? child.avatar, photoUri: photoUri?.trim() || undefined }
             : child),
         }));
       },

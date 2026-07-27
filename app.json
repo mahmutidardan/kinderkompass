@@ -31,6 +31,12 @@
       "expo-router",
       "expo-notifications",
       [
+        "expo-image-picker",
+        {
+          "photosPermission": "Fieberwache benötigt Zugriff auf deine Fotos, damit du ein Profilbild für dein Kind auswählen kannst."
+        }
+      ],
+      [
         "expo-splash-screen",
         {
           "image": "./assets/images/splash-icon.png",

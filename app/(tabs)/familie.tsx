@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { router, type Href } from 'expo-router';
-import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
+import { Linking, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { AppShell } from '@/components/app-shell';
 import { AvatarBuilder } from '@/components/avatar-builder';
-import { AVATAR_BACKGROUNDS, ChildAvatar as ProfileAvatar, DEFAULT_CHILD_AVATAR, normalizeChildAvatar } from '@/components/child-avatar';
+import { AVATAR_BACKGROUNDS, ChildAvatar as ProfileAvatar, DEFAULT_CHILD_AVATAR, getDefaultChildAvatar, normalizeChildAvatar } from '@/components/child-avatar';
 import { InfoButton } from '@/components/info-button';
 import { AppButton } from '@/components/ui/app-button';
 import { AppCard } from '@/components/ui/app-card';
@@ -14,23 +15,29 @@ import { AppSectionHeading } from '@/components/ui/app-section-heading';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Design } from '@/constants/design';
 import { useAuth } from '@/lib/auth';
-import { Child, useStore } from '@/lib/store';
+import { Child, ChildGender, useStore } from '@/lib/store';
 import { isValidBirthDate } from '@/lib/date-time';
 import { cancelReminders } from '@/lib/notifications';
+import { useSubscription } from '@/lib/subscription';
 
 export default function FamilieScreen() {
   const { configured, guest, localMode, user } = useAuth();
   const store = useStore();
+  const subscription = useSubscription();
   const { children, activeChildId, addChild, updateChild, deleteChild, setActiveChild, storageProtection, syncStatus } = store;
   const [showForm, setShowForm] = useState(children.length === 0);
   const [name, setName] = useState('');
   const [birthDate, setBirthDate] = useState('');
+  const [gender, setGender] = useState<ChildGender>();
   const [avatar, setAvatar] = useState({ ...DEFAULT_CHILD_AVATAR });
+  const [photoUri, setPhotoUri] = useState<string>();
   const [avatarOpen, setAvatarOpen] = useState(false);
   const [editingChildId, setEditingChildId] = useState<string>();
   const [editName, setEditName] = useState('');
   const [editBirthDate, setEditBirthDate] = useState('');
+  const [editGender, setEditGender] = useState<ChildGender>();
   const [editAvatar, setEditAvatar] = useState({ ...DEFAULT_CHILD_AVATAR });
+  const [editPhotoUri, setEditPhotoUri] = useState<string>();
   const [editAvatarOpen, setEditAvatarOpen] = useState(false);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [profileFeedback, setProfileFeedback] = useState<string>();
@@ -45,14 +52,17 @@ export default function FamilieScreen() {
     const nextErrors: Record<string, string> = {};
     if (!name.trim()) nextErrors.name = 'Bitte trage einen Vornamen oder Spitznamen ein.';
     if (!isValidBirthDate(birthDate)) nextErrors.birthDate = 'Bitte wähle ein gültiges Geburtsdatum, das nicht in der Zukunft liegt.';
+    if (!gender) nextErrors.gender = 'Bitte wähle männlich oder weiblich aus.';
     if (Object.keys(nextErrors).length) {
       setFormErrors(nextErrors);
       return;
     }
-    addChild(name, birthDate, avatar);
+    addChild(name, birthDate, gender, avatar, photoUri);
     setName('');
     setBirthDate('');
+    setGender(undefined);
     setAvatar({ ...DEFAULT_CHILD_AVATAR });
+    setPhotoUri(undefined);
     setAvatarOpen(false);
     setShowForm(false);
     setFormErrors({});
@@ -63,7 +73,9 @@ export default function FamilieScreen() {
     setEditingChildId(child.id);
     setEditName(child.name);
     setEditBirthDate(child.birthDate ?? '');
+    setEditGender(child.gender);
     setEditAvatar(normalizeChildAvatar(child.avatar));
+    setEditPhotoUri(child.photoUri);
     setEditAvatarOpen(false);
     setPendingDeleteId(undefined);
     setShowForm(false);
@@ -74,15 +86,54 @@ export default function FamilieScreen() {
     const nextErrors: Record<string, string> = {};
     if (!editName.trim()) nextErrors.editName = 'Bitte trage einen Vornamen oder Spitznamen ein.';
     if (!isValidBirthDate(editBirthDate)) nextErrors.editBirthDate = 'Bitte wähle ein gültiges Geburtsdatum, das nicht in der Zukunft liegt.';
+    if (!editGender) nextErrors.editGender = 'Bitte wähle männlich oder weiblich aus.';
     if (Object.keys(nextErrors).length) {
       setFormErrors(nextErrors);
       return;
     }
-    updateChild(editingChildId, editName, editBirthDate, editAvatar);
+    updateChild(editingChildId, editName, editBirthDate, editGender, editAvatar, editPhotoUri);
     setEditingChildId(undefined);
     setEditAvatarOpen(false);
     setFormErrors({});
     setProfileFeedback('Profiländerungen gespeichert.');
+  }
+
+  async function chooseProfilePhoto(editing: boolean) {
+    setFormErrors((current) => ({ ...current, photo: '' }));
+    if (Platform.OS !== 'web') {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        setFormErrors((current) => ({ ...current, photo: 'Bitte erlaube den Fotozugriff in den Geräteeinstellungen.' }));
+        return;
+      }
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.55,
+      base64: true,
+    });
+    if (result.canceled || !result.assets[0]) return;
+    const asset = result.assets[0];
+    const uri = asset.base64 ? `data:${asset.mimeType ?? 'image/jpeg'};base64,${asset.base64}` : asset.uri;
+    if (editing) {
+      setEditPhotoUri(uri);
+      setEditAvatarOpen(false);
+    } else {
+      setPhotoUri(uri);
+      setAvatarOpen(false);
+    }
+  }
+
+  function selectGender(value: ChildGender, editing: boolean) {
+    if (editing) {
+      setEditGender(value);
+      if (!editPhotoUri) setEditAvatar(getDefaultChildAvatar(value));
+    } else {
+      setGender(value);
+      if (!photoUri) setAvatar(getDefaultChildAvatar(value));
+    }
   }
 
   async function confirmDelete() {
@@ -112,7 +163,7 @@ export default function FamilieScreen() {
                   <View style={[styles.avatarWrap, selected && styles.avatarSelected]}><ProfileAvatar child={child} avatar={child.avatar ?? { ...DEFAULT_CHILD_AVATAR, backgroundColor: AVATAR_BACKGROUNDS[index % AVATAR_BACKGROUNDS.length] }} size={49} /></View>
                   <View style={styles.childCopy}>
                     <View style={styles.nameRow}><Text style={styles.childName}>{child.name}</Text>{selected ? <View style={styles.activePill}><Text style={styles.activePillText}>AKTIV</Text></View> : null}</View>
-                    <Text style={styles.childMeta}>{child.birthDate ? `Geboren am ${child.birthDate}` : 'Geburtsdatum nicht hinterlegt'}</Text>
+                    <Text style={styles.childMeta}>{[child.gender === 'male' ? 'Männlich' : child.gender === 'female' ? 'Weiblich' : undefined, child.birthDate ? `Geboren am ${child.birthDate}` : 'Geburtsdatum nicht hinterlegt'].filter(Boolean).join(' · ')}</Text>
                   </View>
                 </Pressable>
                 <View style={styles.profileActions}>
@@ -136,8 +187,19 @@ export default function FamilieScreen() {
             <Pressable accessibilityLabel="Bearbeitung schließen" onPress={() => setEditingChildId(undefined)} style={styles.closeButton}><IconSymbol name="xmark" size={18} color={Design.colors.inkSoft} /></Pressable>
           </View>
           <AppInput error={formErrors.editName} label="Name" value={editName} onChangeText={setEditName} placeholder="Name" autoFocus />
-          <AppDateTimeInput error={formErrors.editBirthDate} label="Geburtsdatum" optional value={editBirthDate} onChange={setEditBirthDate} maximumDate={new Date()} />
-          <View style={styles.avatarDisclosure}><View style={styles.avatarSummary}><ProfileAvatar child={{ id: editingChildId, name: editName || 'Kind' }} avatar={editAvatar} size={64} /><View style={styles.avatarSummaryCopy}><Text style={styles.avatarSummaryTitle}>Persönlicher Avatar</Text><Text style={styles.avatarSummaryText}>Optional – du kannst ihn jederzeit ändern.</Text></View></View><AppButton label={editAvatarOpen ? 'Avatar schließen' : 'Avatar gestalten'} variant="soft" compact onPress={() => setEditAvatarOpen((current) => !current)} /></View>
+          <AppDateTimeInput error={formErrors.editBirthDate} label="Geburtsdatum" value={editBirthDate} onChange={setEditBirthDate} maximumDate={new Date()} />
+          <GenderSelector value={editGender} error={formErrors.editGender} onChange={(value) => selectGender(value, true)} />
+          <ProfilePictureControls
+            id={editingChildId}
+            name={editName || 'Kind'}
+            avatar={editAvatar}
+            photoUri={editPhotoUri}
+            avatarOpen={editAvatarOpen}
+            onPickPhoto={() => chooseProfilePhoto(true)}
+            onToggleAvatar={() => { setEditPhotoUri(undefined); setEditAvatarOpen((current) => !current); }}
+            onRemovePhoto={() => setEditPhotoUri(undefined)}
+          />
+          {formErrors.photo ? <Text accessibilityLiveRegion="polite" style={styles.inlineError}>{formErrors.photo}</Text> : null}
           {editAvatarOpen ? <AvatarBuilder value={editAvatar} onChange={setEditAvatar} /> : null}
           <AppButton label="Änderungen speichern" onPress={submitEdit} disabled={!editName.trim()} />
         </AppCard>
@@ -156,8 +218,19 @@ export default function FamilieScreen() {
           <View style={styles.formHeadingCopy}><Text style={styles.cardTitle}>Wer darf mit rein?</Text><InfoButton title="Kinderprofil" text="Lege hier ein Profil pro Kind an. Das Geburtsdatum wird außerdem für die Temperatur- und U-Untersuchungsorientierung genutzt." /></View>
           <Text style={styles.cardCopy}>Ein Vorname oder Spitzname reicht für den Anfang.</Text>
           <AppInput error={formErrors.name} label="Name" value={name} onChangeText={setName} placeholder="z. B. Mila" autoFocus />
-          <AppDateTimeInput error={formErrors.birthDate} label="Geburtsdatum" optional value={birthDate} onChange={setBirthDate} maximumDate={new Date()} />
-          <View style={styles.avatarDisclosure}><View style={styles.avatarSummary}><ProfileAvatar child={{ id: 'preview', name: name || 'Kind' }} avatar={avatar} size={64} /><View style={styles.avatarSummaryCopy}><Text style={styles.avatarSummaryTitle}>Persönlicher Avatar</Text><Text style={styles.avatarSummaryText}>Optional – das Profil ist auch ohne Anpassung vollständig.</Text></View></View><AppButton label={avatarOpen ? 'Avatar schließen' : 'Avatar gestalten'} variant="soft" compact onPress={() => setAvatarOpen((current) => !current)} /></View>
+          <AppDateTimeInput error={formErrors.birthDate} label="Geburtsdatum" value={birthDate} onChange={setBirthDate} maximumDate={new Date()} />
+          <GenderSelector value={gender} error={formErrors.gender} onChange={(value) => selectGender(value, false)} />
+          <ProfilePictureControls
+            id="preview"
+            name={name || 'Kind'}
+            avatar={avatar}
+            photoUri={photoUri}
+            avatarOpen={avatarOpen}
+            onPickPhoto={() => chooseProfilePhoto(false)}
+            onToggleAvatar={() => { setPhotoUri(undefined); setAvatarOpen((current) => !current); }}
+            onRemovePhoto={() => setPhotoUri(undefined)}
+          />
+          {formErrors.photo ? <Text accessibilityLiveRegion="polite" style={styles.inlineError}>{formErrors.photo}</Text> : null}
           {avatarOpen ? <AvatarBuilder value={avatar} onChange={setAvatar} /> : null}
           <AppButton label="Profil speichern" onPress={submit} disabled={!name.trim()} />
           {children.length > 0 ? <Pressable onPress={() => setShowForm(false)}><Text style={styles.cancel}>Abbrechen</Text></Pressable> : null}
@@ -165,6 +238,16 @@ export default function FamilieScreen() {
       ) : !editingChildId && !pendingDeleteChild ? (
         <AppButton label="Weiteres Kinderprofil" variant="soft" onPress={() => setShowForm(true)} icon={<IconSymbol name="plus" size={19} color={Design.colors.primaryDark} />} />
       ) : null}
+
+      <AppSectionHeading title="Fieberwache Plus" subtitle="Testzeitraum und Tarif" infoTitle="Fieberwache Plus" infoText="Du kannst alle Funktionen sieben Tage kostenlos testen. Danach benötigst du einen Monats- oder Jahrestarif." />
+      <AppCard tone="sage" elevated={false} compact style={styles.subscriptionCard}>
+        <View style={styles.subscriptionIcon}><IconSymbol name="sparkles" size={21} color={Design.colors.primaryDark} /></View>
+        <View style={styles.subscriptionCopy}>
+          <Text style={styles.subscriptionTitle}>{subscription.previewSubscriptionActive ? 'Test-Abo aktiv' : subscription.trialActive ? 'Kostenloser Test aktiv' : 'Tarif auswählen'}</Text>
+          <Text style={styles.subscriptionMeta}>{subscription.previewSubscriptionActive ? (subscription.selectedPlan === 'annual' ? '12-Monats-Tarif · Testmodus' : 'Monatstarif · Testmodus') : subscription.trialActive ? `Noch ${subscription.trialDaysRemaining} ${subscription.trialDaysRemaining === 1 ? 'Tag' : 'Tage'} kostenlos` : '7 Tage kostenlos testen'}</Text>
+        </View>
+        <AppButton label="Tarife" variant="secondary" compact onPress={() => router.push('/paywall' as Href)} />
+      </AppCard>
 
       <AppSectionHeading title="Konto & Sicherheit" subtitle="Zugang, Geräteschutz und Synchronisierung" infoTitle="Konto & Sicherheit" infoText="Auf iPhone und Android werden lokale App-Daten verschlüsselt. Im Browser liegen sie nur im jeweiligen Browserprofil. Mit konfiguriertem Online-Konto können sie zusätzlich synchronisiert werden." />
       <AppCard tone={guest ? 'sage' : 'lavender'} elevated={false} compact style={styles.accountCard}>
@@ -194,6 +277,46 @@ export default function FamilieScreen() {
         <View style={styles.privacyCopyWrap}><Text style={styles.privacyTitle}>{storageProtection === 'encrypted-device' ? 'Lokal verschlüsselt' : 'Browserlokal gespeichert'}</Text><Text style={styles.privacyCopy}>{storageProtection === 'encrypted-device' ? 'Der lokale Datensatz wird mit einem gerätegebundenen Schlüssel verschlüsselt.' : 'Browserdaten sind nicht geräteverschlüsselt und können beim Löschen der Websitedaten verloren gehen.'}</Text></View>
       </AppCard>
     </AppShell>
+  );
+}
+
+function GenderSelector({ value, error, onChange }: { value?: ChildGender; error?: string; onChange: (value: ChildGender) => void }) {
+  return (
+    <View style={styles.genderField}>
+      <Text style={styles.fieldLabel}>Geschlecht</Text>
+      <View accessibilityRole="radiogroup" style={styles.genderOptions}>
+        {([['male', 'Männlich'], ['female', 'Weiblich']] as const).map(([genderValue, label]) => {
+          const selected = value === genderValue;
+          return (
+            <Pressable accessibilityRole="radio" accessibilityState={{ checked: selected }} key={genderValue} onPress={() => onChange(genderValue)} style={({ pressed }) => [styles.genderOption, selected && styles.genderOptionSelected, pressed && styles.genderOptionPressed]}>
+              <View style={[styles.genderRadio, selected && styles.genderRadioSelected]}>{selected ? <View style={styles.genderRadioDot} /> : null}</View>
+              <Text style={[styles.genderText, selected && styles.genderTextSelected]}>{label}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
+      {error ? <Text accessibilityLiveRegion="polite" style={styles.inlineError}>{error}</Text> : null}
+    </View>
+  );
+}
+
+function ProfilePictureControls({ id, name, avatar, photoUri, avatarOpen, onPickPhoto, onToggleAvatar, onRemovePhoto }: { id: string; name: string; avatar: typeof DEFAULT_CHILD_AVATAR; photoUri?: string; avatarOpen: boolean; onPickPhoto: () => void; onToggleAvatar: () => void; onRemovePhoto: () => void }) {
+  return (
+    <View style={styles.avatarDisclosure}>
+      <View style={styles.avatarSummary}>
+        <ProfileAvatar child={{ id, name, photoUri }} avatar={avatar} size={72} />
+        <View style={styles.avatarSummaryCopy}>
+          <Text style={styles.avatarSummaryTitle}>{photoUri ? 'Eigenes Profilfoto' : 'Standard-Avatar'}</Text>
+          <Text style={styles.avatarSummaryText}>{photoUri ? 'Das ausgewählte Bild wird für dieses Kinderprofil verwendet.' : 'Wird passend zur Geschlechtsauswahl erstellt und kann angepasst werden.'}</Text>
+        </View>
+      </View>
+      <View style={styles.avatarActions}>
+        <AppButton label={photoUri ? 'Foto ändern' : 'Eigenes Foto'} variant="secondary" compact onPress={onPickPhoto} style={styles.avatarAction} />
+        <AppButton label={avatarOpen ? 'Avatar schließen' : 'Avatar gestalten'} variant="soft" compact onPress={onToggleAvatar} style={styles.avatarAction} />
+      </View>
+      {photoUri ? <Pressable accessibilityRole="button" onPress={onRemovePhoto} style={styles.removePhotoButton}><Text style={styles.removePhotoText}>Foto entfernen und Avatar verwenden</Text></Pressable> : null}
+      <Text style={styles.photoPrivacy}>Das Foto wird als Teil des Kinderprofils gespeichert. Hinterlege nur ein Bild, das du dafür verwenden möchtest.</Text>
+    </View>
   );
 }
 
@@ -228,9 +351,31 @@ const styles = StyleSheet.create({
   avatarSummaryCopy: { flex: 1, gap: 2 },
   avatarSummaryTitle: { color: Design.colors.ink, fontSize: 14, lineHeight: 19, fontFamily: Design.fonts.bold },
   avatarSummaryText: { color: Design.colors.inkSoft, fontSize: 12, lineHeight: 18, fontFamily: Design.fonts.regular },
+  avatarActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  avatarAction: { flexGrow: 1, flexBasis: 145 },
+  removePhotoButton: { minHeight: 44, alignItems: 'center', justifyContent: 'center' },
+  removePhotoText: { color: Design.colors.danger, fontSize: 12, lineHeight: 17, fontFamily: Design.fonts.bold },
+  photoPrivacy: { color: Design.colors.inkSoft, fontSize: 11, lineHeight: 16, fontFamily: Design.fonts.regular },
+  fieldLabel: { color: Design.colors.ink, fontSize: 13, lineHeight: 18, fontFamily: Design.fonts.bold },
+  genderField: { gap: 8 },
+  genderOptions: { flexDirection: 'row', gap: 10 },
+  genderOption: { flex: 1, minHeight: 52, borderRadius: 17, borderWidth: 1, borderColor: Design.colors.border, backgroundColor: Design.colors.surface, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 9 },
+  genderOptionSelected: { borderColor: Design.colors.primary, backgroundColor: Design.colors.primarySoft },
+  genderOptionPressed: { opacity: 0.78, transform: [{ scale: 0.98 }] },
+  genderRadio: { width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: Design.colors.borderStrong, alignItems: 'center', justifyContent: 'center' },
+  genderRadioSelected: { borderColor: Design.colors.primary },
+  genderRadioDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: Design.colors.primary },
+  genderText: { color: Design.colors.inkSoft, fontSize: 13, lineHeight: 18, fontFamily: Design.fonts.semiBold },
+  genderTextSelected: { color: Design.colors.primaryDark, fontFamily: Design.fonts.bold },
+  inlineError: { color: Design.colors.danger, fontSize: 12, lineHeight: 17, fontFamily: Design.fonts.semiBold },
   closeButton: { width: 44, height: 44, borderRadius: 16, backgroundColor: Design.colors.backgroundMuted, alignItems: 'center', justifyContent: 'center' },
   cancel: { color: Design.colors.inkSoft, textAlign: 'center', fontSize: 12, fontFamily: Design.fonts.bold, paddingTop: 4 },
   accountCard: { flexDirection: 'row', alignItems: 'center', gap: 11 },
+  subscriptionCard: { flexDirection: 'row', alignItems: 'center', gap: 11 },
+  subscriptionIcon: { width: 42, height: 42, borderRadius: 15, backgroundColor: 'rgba(255,255,255,0.65)', alignItems: 'center', justifyContent: 'center' },
+  subscriptionCopy: { flex: 1, gap: 2 },
+  subscriptionTitle: { color: Design.colors.ink, fontSize: 14, lineHeight: 19, fontFamily: Design.fonts.bold },
+  subscriptionMeta: { color: Design.colors.inkSoft, fontSize: 12, lineHeight: 17, fontFamily: Design.fonts.regular },
   accountIcon: { width: 42, height: 42, borderRadius: 15, backgroundColor: 'rgba(255,255,255,0.65)', alignItems: 'center', justifyContent: 'center' },
   accountCopy: { flex: 1, gap: 2 },
   accountName: { color: Design.colors.ink, fontSize: 14, lineHeight: 19, fontFamily: Design.fonts.bold },

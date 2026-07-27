@@ -1,3 +1,4 @@
+import { Image } from 'expo-image';
 import { StyleSheet, View } from 'react-native';
 import Svg, { Circle, Ellipse, G, Line, Path, Rect } from 'react-native-svg';
 
@@ -26,6 +27,26 @@ export const DEFAULT_CHILD_AVATAR: ChildAvatarConfig = {
   backgroundColor: Design.colors.lavender,
 };
 
+export const DEFAULT_BOY_AVATAR: ChildAvatarConfig = {
+  ...DEFAULT_CHILD_AVATAR,
+  hairStyle: 'short',
+  outfit: 'hoodie',
+  outfitColor: '#5E93A6',
+  backgroundColor: '#D8EAE1',
+};
+
+export const DEFAULT_GIRL_AVATAR: ChildAvatarConfig = {
+  ...DEFAULT_CHILD_AVATAR,
+  hairStyle: 'waves',
+  outfit: 'overalls',
+  outfitColor: '#7163A8',
+  backgroundColor: '#DED8F2',
+};
+
+export function getDefaultChildAvatar(gender?: Child['gender']): ChildAvatarConfig {
+  return { ...(gender === 'male' ? DEFAULT_BOY_AVATAR : DEFAULT_GIRL_AVATAR) };
+}
+
 function validValue(value: string | undefined, options: string[], fallback: string) {
   return value && options.includes(value) ? value : fallback;
 }
@@ -45,6 +66,7 @@ export function normalizeChildAvatar(avatar?: Partial<ChildAvatarConfig>): Child
 type AvatarProps = {
   child?: Child;
   avatar?: Partial<ChildAvatarConfig>;
+  photoUri?: string;
   size?: number;
 };
 
@@ -142,7 +164,15 @@ function Accessory({ value }: { value: ChildAvatarConfig }) {
   return null;
 }
 
-export function ChildAvatar({ child, avatar, size = 49 }: AvatarProps) {
+export function ChildAvatar({ child, avatar, photoUri, size = 49 }: AvatarProps) {
+  const profilePhoto = photoUri ?? child?.photoUri;
+  if (profilePhoto) {
+    return (
+      <View accessibilityLabel={child ? `Profilfoto von ${child.name}` : 'Profilfoto-Vorschau'} style={[styles.avatar, { width: size, height: size, borderRadius: size * 0.3 }]}>
+        <Image source={{ uri: profilePhoto }} contentFit="cover" style={styles.photo} transition={150} />
+      </View>
+    );
+  }
   const value = normalizeChildAvatar(avatar ?? child?.avatar);
   return (
     <View accessibilityLabel={child ? `Avatar von ${child.name}` : 'Avatar-Vorschau'} style={[styles.avatar, { width: size, height: size, borderRadius: size * 0.3 }]}>
@@ -170,4 +200,5 @@ export function ChildAvatar({ child, avatar, size = 49 }: AvatarProps) {
 
 const styles = StyleSheet.create({
   avatar: { overflow: 'hidden', backgroundColor: Design.colors.lavender },
+  photo: { width: '100%', height: '100%' },
 });

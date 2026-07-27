@@ -30,6 +30,7 @@ import { Design } from '@/constants/design';
 import { AuthProvider, useAuth } from '@/lib/auth';
 import { StoreProvider, useStore } from '@/lib/store';
 import { configureNotifications } from '@/lib/notifications';
+import { SubscriptionProvider, useSubscription } from '@/lib/subscription';
 
 export const unstable_settings = {
   anchor: '(tabs)',
@@ -50,12 +51,13 @@ export default function RootLayout() {
 function ScopedApp() {
   const { ready, storageScope } = useAuth();
   if (!ready) return <LoadingState label="Zugang wird vorbereitet" />;
-  return <StoreProvider key={storageScope} storageScope={storageScope}><AppNavigator /></StoreProvider>;
+  return <SubscriptionProvider key={storageScope} storageScope={storageScope}><StoreProvider storageScope={storageScope}><AppNavigator /></StoreProvider></SubscriptionProvider>;
 }
 
 function AppNavigator() {
   const { hydrated } = useStore();
   const { authenticated } = useAuth();
+  const subscription = useSubscription();
   const [fontsLoaded] = useFonts({
     Manrope_400Regular,
     Manrope_500Medium,
@@ -78,7 +80,7 @@ function AppNavigator() {
     colors: { ...DefaultTheme.colors, background: Design.colors.background, primary: Design.colors.primary },
   };
 
-  if (!hydrated || !fontsLoaded) {
+  if (!hydrated || !fontsLoaded || !subscription.ready) {
     return <LoadingState label="Familientagebuch wird geladen" />;
   }
 
@@ -89,6 +91,9 @@ function AppNavigator() {
           <Stack.Screen name="login" options={{ headerShown: false }} />
         </Stack.Protected>
         <Stack.Protected guard={authenticated}>
+          <Stack.Screen name="paywall" options={{ headerShown: false }} />
+        </Stack.Protected>
+        <Stack.Protected guard={authenticated && subscription.hasAccess}>
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="modal" options={{ presentation: 'modal', headerShown: false }} />
           <Stack.Screen name="logout" options={{ presentation: 'modal', headerShown: false }} />
