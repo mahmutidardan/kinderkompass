@@ -23,6 +23,20 @@ Fieberwache ist ein familienorientiertes Gesundheitstagebuch, kein Diagnose- ode
 - Plattformunterschiede explizit berücksichtigen; Browser-Benachrichtigungen niemals wie native Alarme darstellen.
 - Öffentliche Typen und persistierte Datenmodelle in `lib/store.tsx` rückwärtskompatibel ändern oder migrieren.
 
+## Effiziente Repository-Arbeit
+
+Ziel ist, Bearbeitungen präzise und mit möglichst wenig Kontext-, Tool- und Build-Aufwand durchzuführen. Jede neue Anfrage startet mit dem kleinsten plausiblen Ausschnitt des Repositories, nicht mit einem Vollscan der App.
+
+- Zuerst Anfrage, zuletzt geänderte Dateien und die naheliegenden Domänenpfade auswerten. Nur wenn das nicht reicht, den Suchbereich schrittweise erweitern.
+- Für Code-Suchen `rg` mit konkreten Suchbegriffen und Verzeichnissen verwenden, zum Beispiel `rg -n "Reminder" app components lib`. Kein ungezieltes rekursives Suchen im gesamten Workspace.
+- `node_modules`, `.git`, Build-Ausgaben, Medien, generierte Dateien, lokale Anhänge und Plattformordner nur durchsuchen, wenn sie ausdrücklich zum Fehlerbild gehören.
+- Vor dem Lesen großer Dateien zuerst Trefferzeilen und kleine, relevante Bereiche öffnen. Keine komplette Datei oder Dokumentation laden, wenn ein Abschnitt genügt.
+- Bereits bekannte Architektur, Pfade und frühere Untersuchungsergebnisse dieser Aufgabe wiederverwenden. Nicht bei jeder Folgeanfrage dieselbe Bestandsaufnahme wiederholen.
+- Änderungen auf die betroffenen Dateien beschränken. Verwandte Dateien nur anfassen, wenn Typen, Persistenz, Tests oder Plattformverhalten es erfordern.
+- Teure Prüfungen gezielt einsetzen: `npm run check` bleibt vor Abschluss verpflichtend; APK-, EAS-, Release- und vollständige End-to-End-Builds nur auf ausdrücklichen Auftrag oder wenn sie zum veränderten nativen Verhalten erforderlich sind.
+- Bei unklarer Zuordnung zuerst eine kurze, eng begrenzte Suche durchführen und den gefundenen Einstiegspunkt nutzen, statt die gesamte App zu analysieren.
+- Diagnoseausgaben knapp halten und keine sensiblen Gesundheits- oder Profildaten ausgeben.
+
 ## Verbindliche Prüfung
 
 Vor Abschluss einer Codeänderung:
