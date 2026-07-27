@@ -1,0 +1,1644 @@
+<!-- Arzt & Kalender (Terra Update) -->
+<!DOCTYPE html>
+
+<html class="light" lang="de"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport"/>
+<title>Health Tracker - Doctor &amp; Calendar</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            display: inline-block;
+            line-height: 1;
+        }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        .bento-card {
+            transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease;
+        }
+        .bento-card:active {
+            transform: scale(0.98);
+        }
+        
+        .timeline-line::before {
+            content: '';
+            position: absolute;
+            left: 11px;
+            top: 24px;
+            bottom: 0;
+            width: 2px;
+            background: repeating-linear-gradient(to bottom, #74796e 0%, #74796e 50%, transparent 50%, transparent 100%);
+            background-size: 2px 8px;
+            opacity: 0.3;
+        }
+    </style>
+<script id="tailwind-config">
+  tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        "colors": {
+                "surface-bright": "#faf6f0",
+                "surface-variant": "#e4e0d8",
+                "primary-container": "#78a886",
+                "outline-variant": "#c4c8bc",
+                "secondary": "#6b6358",
+                "inverse-primary": "#8ecf9e",
+                "on-background": "#2e3230",
+                "primary-fixed": "#c8e8d0",
+                "secondary-container": "#f0e8db",
+                "on-tertiary": "#ffffff",
+                "inverse-on-surface": "#f5f0e8",
+                "on-primary-container": "#d8f0de",
+                "surface": "#faf6f0",
+                "on-primary-fixed-variant": "#2a6038",
+                "surface-tint": "#4a7c59",
+                "surface-container-low": "#f5f1ea",
+                "on-secondary-fixed": "#1e1a13",
+                "surface-dim": "#dbd7cf",
+                "on-secondary-container": "#5e5548",
+                "on-surface-variant": "#4a4e4a",
+                "on-surface": "#2e3230",
+                "on-secondary": "#ffffff",
+                "surface-container-lowest": "#ffffff",
+                "tertiary-container": "#c4a66a",
+                "error": "#b83230",
+                "tertiary-fixed-dim": "#dcc48e",
+                "on-primary": "#ffffff",
+                "inverse-surface": "#2e3230",
+                "on-tertiary-container": "#554020",
+                "on-error": "#ffffff",
+                "background": "#faf6f0",
+                "surface-container-highest": "#e4e0d8",
+                "on-tertiary-fixed-variant": "#554020",
+                "on-secondary-fixed-variant": "#4a4538",
+                "primary": "#4a7c59",
+                "tertiary-fixed": "#f8e0a8",
+                "secondary-fixed": "#f0e8db",
+                "error-container": "#ffdad8",
+                "secondary-fixed-dim": "#d4ccbf",
+                "tertiary": "#705c30",
+                "on-primary-fixed": "#002110",
+                "outline": "#74796e",
+                "on-tertiary-fixed": "#221a05",
+                "primary-fixed-dim": "#8ecf9e",
+                "on-error-container": "#690005",
+                "surface-container-high": "#eae6de",
+                "surface-container": "#f0ece4"
+        },
+        "borderRadius": {
+                "DEFAULT": "0.5rem",
+                "lg": "1rem",
+                "xl": "1.5rem",
+                "full": "9999px"
+        },
+        "spacing": {
+                        "lg": "24px",
+                        "xxl": "48px",
+                        "margin-mobile": "20px",
+                        "xs": "8px",
+                        "xl": "32px",
+                        "md": "16px",
+                        "gutter": "16px",
+                        "margin-desktop": "40px",
+                        "base": "4px",
+                        "sm": "12px"
+                    },
+        "fontFamily": {
+                "headline": [
+                        "Literata"
+                ],
+                "display": [
+                        "Literata"
+                ],
+                "body": [
+                        "Nunito Sans"
+                ],
+                "label": [
+                        "Nunito Sans"
+                ],
+                "headline-lg": ["Nunito Sans"],
+                        "headline-sm": ["Nunito Sans"],
+                        "headline-md": ["Nunito Sans"],
+                        "body-lg": ["Nunito Sans"],
+                        "label-sm": ["Nunito Sans"],
+                        "body-md": ["Nunito Sans"],
+                        "label-md": ["Nunito Sans"],
+                        "body-sm": ["Nunito Sans"]
+        },
+        "fontSize": {
+                        "headline-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                        "headline-sm": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                        "headline-md": ["24px", {"lineHeight": "32px", "fontWeight": "700"}],
+                        "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                        "label-sm": ["12px", {"lineHeight": "14px", "letterSpacing": "0.02em", "fontWeight": "500"}],
+                        "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                        "label-md": ["14px", {"lineHeight": "16px", "letterSpacing": "0.01em", "fontWeight": "600"}],
+                        "body-sm": ["14px", {"lineHeight": "20px", "fontWeight": "400"}]
+                    }
+},
+    },
+  }
+</script>
+<style>
+        /* Apply Terra design system overrides */
+        :root {
+            --primary: #4a7c59;
+            --on-primary: #ffffff;
+            --primary-container: #78a886;
+            --on-primary-container: #d8f0de;
+            --secondary: #6b6358;
+            --on-secondary: #ffffff;
+            --secondary-container: #f0e8db;
+            --on-secondary-container: #5e5548;
+            --surface: #faf6f0;
+            --on-surface: #2e3230;
+            --surface-container-low: #f5f1ea;
+            --surface-container-lowest: #ffffff;
+            --outline: #74796e;
+            --outline-variant: #c4c8bc;
+        }
+        
+        .bg-primary { background-color: var(--primary); }
+        .text-primary { color: var(--primary); }
+        .bg-primary-container { background-color: var(--primary-container); }
+        .text-on-primary-container { color: var(--on-primary-container); }
+        .bg-secondary-container { background-color: var(--secondary-container); }
+        .text-on-secondary-container { color: var(--on-secondary-container); }
+        .bg-surface { background-color: var(--surface); }
+        .bg-surface-container-low { background-color: var(--surface-container-low); }
+        .bg-surface-container-lowest { background-color: var(--surface-container-lowest); }
+        .border-outline-variant { border-color: var(--outline-variant); }
+        .text-on-surface { color: var(--on-surface); }
+        
+        body {
+            min-height: max(884px, 100dvh);
+            background-color: var(--surface);
+        }
+    </style>
+</head>
+<body class="font-body-md text-on-surface min-h-screen pb-32 bg-surface">
+<!-- Top App Bar -->
+<header class="fixed top-0 w-full z-50 bg-surface/90 backdrop-blur-md shadow-sm flex justify-between items-center h-16 px-margin-mobile md:px-margin-desktop">
+<div class="flex items-center gap-sm">
+<div class="w-10 h-10 rounded-xl overflow-hidden border-2 border-primary-container">
+<img class="w-full h-full object-cover" data-alt="Baby portrait" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDTLgqiOW0WJiTRVTDlPOIbKtrxXgyT9uebJAdf_dmdKu1ItWmH2GqiQUzZ5b2RyNzdWKvJlK5UMy2WwyLjc04btsUrAbm6JmvSEt8UdNczOlr9GVK9PjBvWqKQFF47WP9Qjny3bvbnVPQ-3CennNj4Dsvk9I2iXVRp3-3qg3Gpn-KNYMWpLL-F64okF-njL5nHWIMjZB9235W_QYGfekB5oOtN_Z9lnnSHPj6nmYZj54k1VQ1R2puAbjCYwGF1YZkTU1Vy95FxtdHF"/>
+</div>
+<h1 class="font-headline-sm text-primary">Health Tracker</h1>
+</div>
+<div class="flex items-center gap-md">
+<button class="p-2 text-on-surface-variant hover:bg-black/5 rounded-full transition-all">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+</div>
+</header>
+<main class="pt-24 px-margin-mobile md:max-w-[800px] md:mx-auto">
+<!-- Pediatrician Contact Bento Card -->
+<section class="mb-xl">
+<div class="bg-surface-container-lowest rounded-xl p-lg shadow-sm bento-card border border-outline-variant/30">
+<div class="flex items-start justify-between mb-md">
+<div class="flex items-center gap-md">
+<div class="w-14 h-14 rounded-xl bg-primary-container flex items-center justify-center text-on-primary-container">
+<span class="material-symbols-outlined !text-3xl" data-icon="medical_services">medical_services</span>
+</div>
+<div>
+<h2 class="font-headline-sm text-on-surface">Dr. Med. Lena Schmidt</h2>
+<p class="text-on-surface-variant font-label-md">Fachärztin für Kinderheilkunde</p>
+</div>
+</div>
+<a class="bg-primary text-on-primary p-3 rounded-full shadow-md hover:shadow-lg active:scale-95 transition-all" href="tel:+49123456789">
+<span class="material-symbols-outlined" data-icon="call">call</span>
+</a>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-md pt-md border-t border-outline-variant/20">
+<div class="flex items-center gap-sm text-on-surface-variant">
+<span class="material-symbols-outlined text-primary" data-icon="location_on">location_on</span>
+<span class="text-body-sm">Hauptstraße 42, 10115 Berlin</span>
+</div>
+<div class="flex items-center gap-sm text-on-surface-variant">
+<span class="material-symbols-outlined text-primary" data-icon="schedule">schedule</span>
+<span class="text-body-sm">Mo-Fr: 08:00 - 12:00 Uhr</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Nächste Termine Section -->
+<section class="mb-xl">
+<div class="flex items-center justify-between mb-md">
+<h3 class="font-headline-sm text-on-surface">Nächste Termine</h3>
+<button class="text-primary font-label-md hover:underline decoration-2 underline-offset-4">Alle ansehen</button>
+</div>
+<div class="space-y-md">
+<!-- Appointment Card 1 -->
+<div class="bg-surface-container-lowest rounded-xl p-md flex items-center gap-md shadow-sm border border-outline-variant/20">
+<div class="bg-primary-container/40 w-16 h-16 rounded-xl flex flex-col items-center justify-center text-primary border border-primary/10">
+<span class="text-label-sm font-bold uppercase">Jun</span>
+<span class="text-headline-sm">12</span>
+</div>
+<div class="flex-1">
+<h4 class="font-label-md text-on-surface">U6 Untersuchung</h4>
+<p class="text-body-sm text-on-surface-variant">09:30 Uhr • Dr. Schmidt</p>
+</div>
+<div class="bg-secondary-container text-on-secondary-container px-3 py-1 rounded-full text-label-sm font-semibold">
+                    In 4 Tagen
+                </div>
+</div>
+<!-- Appointment Card 2 -->
+<div class="bg-surface-container-lowest rounded-xl p-md flex items-center gap-md shadow-sm border border-outline-variant/20">
+<div class="bg-surface-container-low w-16 h-16 rounded-xl flex flex-col items-center justify-center text-on-surface-variant border border-outline-variant/20">
+<span class="text-label-sm font-bold uppercase">Aug</span>
+<span class="text-headline-sm">05</span>
+</div>
+<div class="flex-1">
+<h4 class="font-label-md text-on-surface">Impfung (Masern)</h4>
+<p class="text-body-sm text-on-surface-variant">11:00 Uhr • Praxis</p>
+</div>
+<span class="material-symbols-outlined text-outline" data-icon="chevron_right">chevron_right</span>
+</div>
+</div>
+</section>
+<!-- U-Untersuchung Schedule -->
+<section class="mb-xl">
+<h3 class="font-headline-sm text-on-surface mb-md">Vorsorgeplan</h3>
+<div class="bg-surface-container-low rounded-xl p-lg border border-outline-variant/30">
+<div class="space-y-0">
+<!-- Timeline Item - Past -->
+<div class="relative pl-10 pb-xl timeline-line">
+<div class="absolute left-0 top-0 w-6 h-6 rounded-full bg-secondary flex items-center justify-center z-10">
+<span class="material-symbols-outlined text-white !text-sm" data-icon="check">check</span>
+</div>
+<div>
+<div class="flex items-center gap-sm">
+<h4 class="font-label-md text-on-surface">U5 Untersuchung</h4>
+<span class="bg-secondary-container text-on-secondary-container px-2 py-0.5 rounded text-[10px] font-bold uppercase">Erledigt</span>
+</div>
+<p class="text-body-sm text-on-surface-variant">6. - 7. Lebensmonat</p>
+<p class="text-label-sm text-outline mt-1 italic">Durchgeführt am 15.03.2024</p>
+</div>
+</div>
+<!-- Timeline Item - Current -->
+<div class="relative pl-10 pb-xl timeline-line">
+<div class="absolute left-0 top-0 w-6 h-6 rounded-full bg-primary border-4 border-primary-container z-10"></div>
+<div class="bg-surface-container-lowest p-md rounded-xl shadow-sm -mt-1 border border-primary/10">
+<h4 class="font-label-md text-primary">U6 Untersuchung</h4>
+<p class="text-body-sm text-on-surface-variant font-medium">10. - 12. Lebensmonat</p>
+<div class="mt-sm flex flex-wrap gap-xs">
+<span class="bg-primary-container text-on-primary-container px-2 py-1 rounded-lg text-[11px] font-semibold border border-primary/5">Aktuell fällig</span>
+<span class="bg-error-container text-error px-2 py-1 rounded-lg text-[11px] font-semibold">Termin gebucht</span>
+</div>
+</div>
+</div>
+<!-- Timeline Item - Future -->
+<div class="relative pl-10 pb-xl timeline-line">
+<div class="absolute left-0 top-0 w-6 h-6 rounded-full bg-outline-variant z-10"></div>
+<div>
+<h4 class="font-label-md text-on-surface-variant">U7 Untersuchung</h4>
+<p class="text-body-sm text-outline">21. - 24. Lebensmonat</p>
+<p class="text-label-sm text-outline mt-1 italic">Voraussichtlich Mai 2025</p>
+</div>
+</div>
+<!-- Timeline Item - Future Last -->
+<div class="relative pl-10">
+<div class="absolute left-0 top-0 w-6 h-6 rounded-full bg-outline-variant z-10"></div>
+<div>
+<h4 class="font-label-md text-on-surface-variant">U7a Untersuchung</h4>
+<p class="text-body-sm text-outline">34. - 36. Lebensmonat</p>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Termin Planen Button -->
+<div class="mb-xxl">
+<button class="w-full bg-primary text-on-primary py-4 rounded-xl font-label-md shadow-lg flex items-center justify-center gap-sm active:scale-[0.98] transition-all hover:bg-opacity-90">
+<span class="material-symbols-outlined" data-icon="calendar_add_on">calendar_add_on</span>
+            Termin planen
+        </button>
+</div>
+</main>
+<!-- Bottom Navigation Bar -->
+<nav class="fixed bottom-0 left-0 w-full z-50 bg-surface-container-lowest/90 backdrop-blur-lg flex justify-around items-center h-20 px-2 pb-safe shadow-[0_-4px_12px_rgba(0,0,0,0.04)] rounded-t-2xl border-t border-outline-variant/20">
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:bg-secondary-container/30 transition-all rounded-xl px-4 py-1" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+<span class="font-label-sm text-label-sm mt-1">Today</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:bg-secondary-container/30 transition-all rounded-xl px-4 py-1" href="#">
+<span class="material-symbols-outlined" data-icon="timeline">timeline</span>
+<span class="font-label-sm text-label-sm mt-1">Timeline</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:bg-secondary-container/30 transition-all rounded-xl px-4 py-1" href="#">
+<span class="material-symbols-outlined" data-icon="medical_services">medical_services</span>
+<span class="font-label-sm text-label-sm mt-1">Meds</span>
+</a>
+<a class="flex flex-col items-center justify-center bg-primary-container text-on-primary-container rounded-xl px-4 py-1 active:scale-105 transition-all duration-200 ease-out" href="#">
+<span class="material-symbols-outlined" data-icon="calendar_today" style="font-variation-settings: 'FILL' 1;">calendar_today</span>
+<span class="font-label-sm text-label-sm mt-1">Doctor</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:bg-secondary-container/30 transition-all rounded-xl px-4 py-1" href="#">
+<span class="material-symbols-outlined" data-icon="person">person</span>
+<span class="font-label-sm text-label-sm mt-1">Profile</span>
+</a>
+</nav>
+<script>
+    // Micro-interactions for buttons
+    document.querySelectorAll('button, a').forEach(el => {
+        el.addEventListener('mousedown', () => {
+            el.classList.add('scale-95');
+        });
+        el.addEventListener('mouseup', () => {
+            el.classList.remove('scale-95');
+        });
+        el.addEventListener('mouseleave', () => {
+            el.classList.remove('scale-95');
+        });
+    });
+</script>
+</body></html>
+
+<!-- Hausapotheke (Terra) -->
+<!DOCTYPE html>
+
+<html class="light" lang="de"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport"/>
+<title>Health Tracker - Hausapotheke</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;500;600;700;800&amp;family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            display: inline-block;
+            line-height: 1;
+        }
+        .soft-shadow {
+            box-shadow: 0 8px 24px rgba(74, 124, 89, 0.08);
+        }
+        .pill-shape {
+            border-radius: 9999px;
+        }
+        .organic-radius {
+            border-radius: 12px;
+        }
+        .timeline-connector::after {
+            content: '';
+            position: absolute;
+            left: 11px;
+            top: 24px;
+            bottom: -24px;
+            width: 2px;
+            background-color: #c8c5d0;
+            opacity: 0.3;
+        }
+        .timeline-item:last-child .timeline-connector::after {
+            display: none;
+        }
+        body {
+            -webkit-tap-highlight-color: transparent;
+            font-family: 'Nunito Sans', sans-serif;
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "primary": "#4a7c59",
+                        "on-primary": "#ffffff",
+                        "primary-container": "#c7eacb",
+                        "on-primary-container": "#00210b",
+                        "secondary": "#526350",
+                        "on-secondary": "#ffffff",
+                        "secondary-container": "#d5e8cf",
+                        "on-secondary-container": "#101f10",
+                        "tertiary": "#39656b",
+                        "on-tertiary": "#ffffff",
+                        "tertiary-container": "#bcebf1",
+                        "on-tertiary-container": "#001f23",
+                        "error": "#ba1a1a",
+                        "on-error": "#ffffff",
+                        "error-container": "#ffdad6",
+                        "on-error-container": "#410002",
+                        "background": "#f7f9f4",
+                        "on-background": "#191d19",
+                        "surface": "#f7f9f4",
+                        "on-surface": "#191d19",
+                        "surface-variant": "#dee5d9",
+                        "on-surface-variant": "#424940",
+                        "outline": "#72796f",
+                        "outline-variant": "#c2c9bd",
+                        "surface-container-lowest": "#ffffff",
+                        "surface-container-low": "#f1f4ee",
+                        "surface-container": "#ebefe8",
+                        "surface-container-high": "#e5e9e2",
+                        "surface-container-highest": "#dfe4dc"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "xxl": "12px",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "xl": "32px",
+                        "margin-mobile": "20px",
+                        "lg": "24px",
+                        "gutter": "16px",
+                        "margin-desktop": "40px",
+                        "base": "4px",
+                        "sm": "12px",
+                        "xs": "8px",
+                        "md": "16px",
+                        "xxl": "48px"
+                    },
+                    "fontFamily": {
+                        "body-lg": ["Nunito Sans"],
+                        "body-sm": ["Nunito Sans"],
+                        "label-sm": ["Nunito Sans"],
+                        "headline-lg": ["Nunito Sans"],
+                        "label-md": ["Nunito Sans"],
+                        "body-md": ["Nunito Sans"],
+                        "headline-sm": ["Nunito Sans"],
+                        "headline-md": ["Nunito Sans"]
+                    },
+                    "fontSize": {
+                        "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                        "body-sm": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                        "label-sm": ["12px", {"lineHeight": "14px", "letterSpacing": "0.02em", "fontWeight": "500"}],
+                        "headline-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "800"}],
+                        "label-md": ["14px", {"lineHeight": "16px", "letterSpacing": "0.01em", "fontWeight": "700"}],
+                        "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                        "headline-sm": ["20px", {"lineHeight": "28px", "fontWeight": "700"}],
+                        "headline-md": ["24px", {"lineHeight": "32px", "fontWeight": "800"}]
+                    }
+                },
+            },
+        }
+    </script>
+</head>
+<body class="bg-background text-on-surface font-body-md min-h-screen pb-24">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 bg-surface border-b border-surface-variant/30 flex justify-between items-center h-16 px-margin-mobile md:px-margin-desktop">
+<div class="flex items-center gap-sm">
+<div class="w-10 h-10 rounded-full overflow-hidden bg-primary-container flex items-center justify-center border border-primary/10">
+<img class="w-full h-full object-cover" data-alt="A warm, professional portrait of a smiling child" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCWNB_k0GWrzz67V7bAuBMDKRhYkRxbiLfExrXBem7QV6ekQvMNbkVisexKyj07PdzOz35M8Kl966ZXiwnCM3AK7SWn3Awl4v5MRKOTuaOHZchJlxK8ZcooHLiZ8yBF1IvQGStm8YA6t0DCBda_uX1sw6ziko5pn-Q7QSi3_fidoxkE-weRVEPSpm47OEMsEKPe2Z2iojoreGWGPekntUAEPcFWjV4tr6tdhQ_21JSr6sIDyWBKvOHWlnCJ3A3UuQiYKONPm77IX3fd"/>
+</div>
+<span class="font-headline-sm text-primary">Health Tracker</span>
+</div>
+<button class="w-10 h-10 flex items-center justify-center hover:bg-surface-container transition-colors rounded-full active:scale-95 duration-200">
+<span class="material-symbols-outlined text-primary">notifications</span>
+</button>
+</header>
+<main class="pt-24 px-margin-mobile max-w-[800px] mx-auto space-y-xl">
+<!-- Warning Box -->
+<section class="bg-error-container text-on-error-container organic-radius p-lg flex gap-md items-start soft-shadow border border-error/10">
+<span class="material-symbols-outlined text-error" style="font-size: 24px;">report</span>
+<div class="space-y-xs">
+<p class="font-label-md">Wichtiger Hinweis</p>
+<p class="font-body-sm opacity-90">Bitte konsultiere bei Unsicherheiten bezüglich Dosierung oder Symptomen immer einen Arzt oder Apotheker. Diese App ersetzt keine professionelle medizinische Beratung.</p>
+</div>
+</section>
+<!-- Meds Actions -->
+<section class="flex flex-col gap-md">
+<h2 class="font-headline-md text-on-surface">Hausapotheke</h2>
+<button class="w-full py-md px-lg bg-primary text-on-primary font-label-md pill-shape flex items-center justify-center gap-xs hover:shadow-lg transition-all active:scale-[0.98] shadow-md">
+<span class="material-symbols-outlined">add</span>
+                Medikament hinzufügen
+            </button>
+</section>
+<!-- Inventory: Dein Inventar -->
+<section class="space-y-md">
+<div class="flex justify-between items-center">
+<h3 class="font-headline-sm text-on-surface">Dein Inventar</h3>
+<span class="font-label-sm text-outline">3 Medikamente</span>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-md">
+<!-- Med Card 1 -->
+<div class="bg-surface-container-lowest organic-radius p-lg soft-shadow flex flex-col gap-md border border-outline-variant/30 transition-transform duration-200">
+<div class="flex justify-between items-start">
+<div class="bg-primary-container p-sm pill-shape flex items-center justify-center">
+<span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 1;">medical_services</span>
+</div>
+<button class="text-outline hover:text-primary transition-colors p-1 rounded-full">
+<span class="material-symbols-outlined">more_vert</span>
+</button>
+</div>
+<div>
+<h4 class="font-label-md text-on-surface">Ibuprofen Saft</h4>
+<p class="font-body-sm text-on-surface-variant">40mg/ml • Geöffnet: 12.10.</p>
+</div>
+<div class="bg-surface-container-low organic-radius p-sm">
+<p class="font-label-sm text-primary mb-1">Standarddosierung</p>
+<p class="font-body-sm text-on-surface">5ml (bei Bedarf alle 6h)</p>
+</div>
+</div>
+<!-- Med Card 2 -->
+<div class="bg-surface-container-lowest organic-radius p-lg soft-shadow flex flex-col gap-md border border-outline-variant/30 transition-transform duration-200">
+<div class="flex justify-between items-start">
+<div class="bg-secondary-container p-sm pill-shape flex items-center justify-center">
+<span class="material-symbols-outlined text-secondary" style="font-variation-settings: 'FILL' 1;">pill</span>
+</div>
+<button class="text-outline hover:text-primary transition-colors p-1 rounded-full">
+<span class="material-symbols-outlined">more_vert</span>
+</button>
+</div>
+<div>
+<h4 class="font-label-md text-on-surface">Paracetamol Zäpfchen</h4>
+<p class="font-body-sm text-on-surface-variant">125mg • 10er Packung</p>
+</div>
+<div class="bg-surface-container-low organic-radius p-sm">
+<p class="font-label-sm text-secondary mb-1">Standarddosierung</p>
+<p class="font-body-sm text-on-surface">1 Zäpfchen (max. 3x tgl.)</p>
+</div>
+</div>
+<!-- Med Card 3 -->
+<div class="bg-surface-container-lowest organic-radius p-lg soft-shadow flex flex-col gap-md border border-outline-variant/30 transition-transform duration-200">
+<div class="flex justify-between items-start">
+<div class="bg-tertiary-container p-sm pill-shape flex items-center justify-center">
+<span class="material-symbols-outlined text-tertiary" style="font-variation-settings: 'FILL' 1;">water_drop</span>
+</div>
+<button class="text-outline hover:text-primary transition-colors p-1 rounded-full">
+<span class="material-symbols-outlined">more_vert</span>
+</button>
+</div>
+<div>
+<h4 class="font-label-md text-on-surface">Nasentropfen</h4>
+<p class="font-body-sm text-on-surface-variant">Abschwellend • 10ml</p>
+</div>
+<div class="bg-surface-container-low organic-radius p-sm">
+<p class="font-label-sm text-tertiary mb-1">Standarddosierung</p>
+<p class="font-body-sm text-on-surface">1 Tropfen pro Nasenloch</p>
+</div>
+</div>
+</div>
+</section>
+<!-- History: Gabe von heute -->
+<section class="space-y-md">
+<h3 class="font-headline-sm text-on-surface">Einnahmen heute</h3>
+<div class="bg-surface-container-lowest organic-radius p-lg soft-shadow border border-outline-variant/20">
+<div class="space-y-lg">
+<!-- Timeline Item 1 -->
+<div class="relative timeline-item flex gap-md">
+<div class="relative z-10 timeline-connector">
+<div class="w-6 h-6 rounded-full bg-primary flex items-center justify-center shadow-sm">
+<span class="material-symbols-outlined text-on-primary" style="font-size: 14px; font-variation-settings: 'FILL' 1;">check</span>
+</div>
+</div>
+<div class="flex-1 pb-gutter">
+<div class="flex justify-between items-start">
+<p class="font-label-md text-on-surface">Ibuprofen Saft</p>
+<span class="font-label-sm text-outline">14:30 Uhr</span>
+</div>
+<p class="font-body-sm text-on-surface-variant">Dosierung: 5ml</p>
+</div>
+</div>
+<!-- Timeline Item 2 -->
+<div class="relative timeline-item flex gap-md">
+<div class="relative z-10 timeline-connector">
+<div class="w-6 h-6 rounded-full bg-primary flex items-center justify-center shadow-sm">
+<span class="material-symbols-outlined text-on-primary" style="font-size: 14px; font-variation-settings: 'FILL' 1;">check</span>
+</div>
+</div>
+<div class="flex-1 pb-gutter">
+<div class="flex justify-between items-start">
+<p class="font-label-md text-on-surface">Nasentropfen</p>
+<span class="font-label-sm text-outline">08:15 Uhr</span>
+</div>
+<p class="font-body-sm text-on-surface-variant">Dosierung: 1 Tropfen je Seite</p>
+</div>
+</div>
+<!-- Timeline Item 3 (Empty State / Message) -->
+<div class="pt-sm border-t border-surface-variant/30">
+<p class="text-center font-label-sm text-primary italic font-medium">Nächste Gabe Ibuprofen frühestens um 20:30 Uhr</p>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center h-20 px-2 pb-safe bg-surface border-t border-surface-variant/30 rounded-t-xxl">
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:bg-surface-container transition-all p-2 rounded-xl" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-label-sm mt-1">Today</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:bg-surface-container transition-all p-2 rounded-xl" href="#">
+<span class="material-symbols-outlined">timeline</span>
+<span class="font-label-sm mt-1">Timeline</span>
+</a>
+<a class="flex flex-col items-center justify-center bg-primary text-on-primary rounded-full px-5 py-2 active:scale-105 transition-all duration-200 ease-out shadow-md" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">medical_services</span>
+<span class="font-label-sm">Meds</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:bg-surface-container transition-all p-2 rounded-xl" href="#">
+<span class="material-symbols-outlined">calendar_today</span>
+<span class="font-label-sm mt-1">Doctor</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:bg-surface-container transition-all p-2 rounded-xl" href="#">
+<span class="material-symbols-outlined">person</span>
+<span class="font-label-sm mt-1">Profile</span>
+</a>
+</nav>
+<script>
+        // Simple micro-interaction for cards consistent with Terra's softness
+        document.querySelectorAll('.bg-surface-container-lowest').forEach(card => {
+            card.addEventListener('mousedown', () => {
+                card.style.transform = 'scale(0.98)';
+                card.style.transition = 'transform 0.1s ease-out';
+            });
+            card.addEventListener('mouseup', () => {
+                card.style.transform = 'scale(1)';
+            });
+            card.addEventListener('mouseleave', () => {
+                card.style.transform = 'scale(1)';
+            });
+        });
+    </script>
+</body></html>
+
+<!-- Profil & Einstellungen (Terra) -->
+<!DOCTYPE html>
+
+<html class="light" lang="de"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Profile &amp; Settings - Health Tracker</title>
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-container-highest": "#e1e4d5",
+                        "on-primary-container": "#072111",
+                        "outline-variant": "#c4c8ba",
+                        "on-surface-variant": "#44483e",
+                        "inverse-surface": "#2f312c",
+                        "tertiary-container": "#d0e4ff",
+                        "surface-variant": "#e1e4d5",
+                        "surface": "#f9f9f2",
+                        "secondary-fixed": "#d9e7cb",
+                        "secondary-container": "#d9e7cb",
+                        "on-primary-fixed-variant": "#334e3b",
+                        "inverse-on-surface": "#f1f1ea",
+                        "background": "#f9f9f2",
+                        "on-background": "#1a1c18",
+                        "tertiary": "#39608f",
+                        "on-surface": "#1a1c18",
+                        "on-secondary-fixed-variant": "#404a36",
+                        "outline": "#75796c",
+                        "on-primary-fixed": "#00210e",
+                        "primary-container": "#ccebc9",
+                        "surface-bright": "#f9f9f2",
+                        "primary": "#4a7c59",
+                        "on-tertiary-container": "#001d35",
+                        "surface-container-high": "#e7e8de",
+                        "primary-fixed": "#ccebc9",
+                        "on-primary": "#ffffff",
+                        "on-error": "#ffffff",
+                        "inverse-primary": "#b0d1b0",
+                        "surface-container": "#edeee3",
+                        "error": "#ba1a1a",
+                        "surface-container-lowest": "#ffffff",
+                        "surface-container-low": "#f3f4e9",
+                        "on-tertiary-fixed": "#001d35",
+                        "on-tertiary": "#ffffff",
+                        "on-error-container": "#410002",
+                        "tertiary-fixed-dim": "#a2c9f9",
+                        "surface-dim": "#dadbd0",
+                        "error-container": "#ffdad6",
+                        "secondary-fixed-dim": "#bdcbaf",
+                        "on-secondary-container": "#131f0d",
+                        "tertiary-fixed": "#d0e4ff",
+                        "on-tertiary-fixed-variant": "#1f4876",
+                        "surface-tint": "#4a7c59",
+                        "primary-fixed-dim": "#b0d1b0",
+                        "on-secondary": "#ffffff",
+                        "on-secondary-fixed": "#131f0d",
+                        "secondary": "#57624c"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "xxl": "12px",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "lg": "24px",
+                        "xxl": "48px",
+                        "margin-mobile": "20px",
+                        "xs": "8px",
+                        "xl": "32px",
+                        "md": "16px",
+                        "gutter": "16px",
+                        "margin-desktop": "40px",
+                        "base": "4px",
+                        "sm": "12px"
+                    },
+                    "fontFamily": {
+                        "headline-lg": ["Nunito Sans"],
+                        "headline-sm": ["Nunito Sans"],
+                        "headline-md": ["Nunito Sans"],
+                        "body-lg": ["Nunito Sans"],
+                        "label-sm": ["Nunito Sans"],
+                        "body-md": ["Nunito Sans"],
+                        "label-md": ["Nunito Sans"],
+                        "body-sm": ["Nunito Sans"]
+                    },
+                    "fontSize": {
+                        "headline-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                        "headline-sm": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                        "headline-md": ["24px", {"lineHeight": "32px", "fontWeight": "700"}],
+                        "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                        "label-sm": ["12px", {"lineHeight": "14px", "letterSpacing": "0.02em", "fontWeight": "500"}],
+                        "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                        "label-md": ["14px", {"lineHeight": "16px", "letterSpacing": "0.01em", "fontWeight": "600"}],
+                        "body-sm": ["14px", {"lineHeight": "20px", "fontWeight": "400"}]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body {
+            background-color: #f9f9f2;
+            color: #1a1c18;
+            font-family: 'Nunito Sans', sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background-color: rgba(74, 124, 89, 0.1);
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body class="min-h-screen pb-32">
+<!-- TopAppBar Shell -->
+<header class="fixed top-0 w-full z-50 flex justify-between items-center h-16 px-margin-mobile md:px-margin-desktop bg-surface dark:bg-surface-dim shadow-[0_4px_12px_rgba(0,0,0,0.02)]">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-xxl overflow-hidden bg-primary-container flex items-center justify-center border-2 border-primary/10">
+<img class="w-full h-full object-cover" data-alt="A soft-focus, high-quality photograph of a smiling toddler with bright eyes and curly hair, captured in warm natural sunlight. The aesthetic is clean and minimalist, using a soft lavender and white color palette to match the empathetic parenting app's design system. The background is a gently blurred nursery room with pastel accents." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAz7w7dhPxkoTIwRIUyWS_6f5rUWs9aiKFOad5a-tWrzfTIsI1eD4n0J01VlfIAjXS6P0A2U3IttvjAVc2RrZCKwT6Ejc-vtP0k127R499vn-u8RLCFplpIfeIfDoT5EYG1k2xQpfq2PCBLGEQ2FTIzrjwvbus3g2dI5O6fbQvNKtbMxmyAd76wxmKl9LxmBfVZIjLVIwuZfDjZH67yneNvmr0MVlWlr0j-CV7AJwbGOU_5aXI9jBFYbbrVUDk_ndll4jHYMlf-CoEl"/>
+</div>
+<h1 class="font-headline-sm text-headline-sm text-primary dark:text-primary-fixed">Profile</h1>
+</div>
+<button class="material-symbols-outlined text-on-surface-variant hover:opacity-80 transition-opacity">notifications</button>
+</header>
+<!-- Main Content Canvas -->
+<main class="mt-20 px-margin-mobile md:px-margin-desktop max-w-[800px] mx-auto space-y-xl">
+<!-- Profile Bento Section -->
+<section class="grid grid-cols-1 gap-gutter">
+<!-- Active Child Profile Card -->
+<div class="bg-surface-container-lowest rounded-xxl p-lg shadow-[0_4px_16px_rgba(0,0,0,0.03)] transition-transform hover:scale-[1.01] active:scale-[0.99] duration-200 border border-outline-variant/30">
+<div class="flex items-center justify-between mb-md">
+<div class="flex items-center gap-md">
+<div class="w-16 h-16 rounded-xxl overflow-hidden ring-4 ring-primary-container/20">
+<img class="w-full h-full object-cover" data-alt="Close-up portrait of a cheerful young child with a friendly expression. The lighting is soft and ethereal, emphasizing the calming, empathetic atmosphere of the application. Predominant colors are soft lavender and warm cream, creating a safe and professional feel for medical-related profile management." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCTa9ZZfzF95Z9yLc_d-CbBO-Ytk_hN4qPbQFPnYjjEgysYLg1ulNdiBbr66QX1xrsbjuI7X3_GJWSkncxUJ2vrOG5HTD9ThG8_tgaOmSoc-bdkydv75KD3zlB_ORv6W6oIAceTwLiqm9pgAdoobOHgbNimL7oALw6S6gRQ6s7ZS9efIkWvnmph-4Uhek9KvuNJCTfvxyP_LoeE4CcRaNJGE4Vqh4CeLT_zXMV2o2a0CpoGUtmGC5wPQ5-D3vvbnwC4roPDtFvjxdWH"/>
+</div>
+<div>
+<h2 class="font-headline-md text-headline-md text-on-surface">Lina Sophie</h2>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Geboren am 12. Mai 2022</p>
+</div>
+</div>
+<button class="material-symbols-outlined p-2 text-primary hover:bg-primary/5 rounded-xxl transition-colors">edit</button>
+</div>
+<div class="flex gap-xs overflow-x-auto pb-xs custom-scrollbar">
+<span class="flex items-center gap-1 px-3 py-1 bg-secondary-container text-on-secondary-container rounded-lg font-label-sm text-label-sm">
+<span class="material-symbols-outlined text-[16px]">check_circle</span> Normal Temp
+                </span>
+<span class="flex items-center gap-1 px-3 py-1 bg-primary-container text-on-primary-container rounded-lg font-label-sm text-label-sm">
+<span class="material-symbols-outlined text-[16px]">medical_services</span> Meds heute
+                </span>
+</div>
+</div>
+<!-- Add Profile Button -->
+<button class="w-full flex items-center justify-center gap-md p-lg border-2 border-dashed border-outline-variant rounded-xxl hover:border-primary/40 hover:bg-primary/5 transition-all group">
+<span class="material-symbols-outlined text-primary group-hover:scale-110 transition-transform">add_circle</span>
+<span class="font-label-md text-label-md text-primary">Weiteres Kinderprofil hinzufügen</span>
+</button>
+</section>
+<!-- Settings List -->
+<section class="space-y-md">
+<h3 class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-widest px-xs">Einstellungen</h3>
+<div class="bg-surface-container-lowest rounded-xxl overflow-hidden shadow-[0_4px_16px_rgba(0,0,0,0.03)] border border-outline-variant/20">
+<!-- Group 1 -->
+<div class="divide-y divide-outline-variant/10">
+<button class="w-full flex items-center justify-between p-lg hover:bg-surface-container-low transition-colors group">
+<div class="flex items-center gap-md">
+<span class="material-symbols-outlined p-2 bg-primary/5 text-primary rounded-xxl">shield_lock</span>
+<span class="font-body-md text-body-md text-on-surface">Konto &amp; Sicherheit</span>
+</div>
+<span class="material-symbols-outlined text-outline-variant group-hover:translate-x-1 transition-transform">chevron_right</span>
+</button>
+<button class="w-full flex items-center justify-between p-lg hover:bg-surface-container-low transition-colors group">
+<div class="flex items-center gap-md">
+<span class="material-symbols-outlined p-2 bg-primary/5 text-primary rounded-xxl">notifications_active</span>
+<span class="font-body-md text-body-md text-on-surface">Benachrichtigungen</span>
+</div>
+<span class="material-symbols-outlined text-outline-variant group-hover:translate-x-1 transition-transform">chevron_right</span>
+</button>
+<button class="w-full flex items-center justify-between p-lg hover:bg-surface-container-low transition-colors group">
+<div class="flex items-center gap-md">
+<span class="material-symbols-outlined p-2 bg-primary/5 text-primary rounded-xxl">help</span>
+<span class="font-body-md text-body-md text-on-surface">Hilfe &amp; Support</span>
+</div>
+<span class="material-symbols-outlined text-outline-variant group-hover:translate-x-1 transition-transform">chevron_right</span>
+</button>
+</div>
+</div>
+</section>
+<!-- Privacy & Legal Section -->
+<section class="space-y-md">
+<h3 class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-widest px-xs">Rechtliches</h3>
+<div class="bg-surface-container-lowest rounded-xxl overflow-hidden shadow-[0_4px_16px_rgba(0,0,0,0.03)] border border-outline-variant/20">
+<div class="divide-y divide-outline-variant/10">
+<button class="w-full flex items-center justify-between p-lg hover:bg-surface-container-low transition-colors group">
+<span class="font-body-md text-body-md text-on-surface">Datenschutz</span>
+<span class="material-symbols-outlined text-outline-variant group-hover:translate-x-1 transition-transform">chevron_right</span>
+</button>
+<button class="w-full flex items-center justify-between p-lg hover:bg-surface-container-low transition-colors group">
+<span class="font-body-md text-body-md text-on-surface">Impressum</span>
+<span class="material-symbols-outlined text-outline-variant group-hover:translate-x-1 transition-transform">chevron_right</span>
+</button>
+</div>
+</div>
+</section>
+<!-- Logout Action -->
+<button class="w-full p-lg rounded-xxl bg-error-container text-on-error-container font-label-md text-label-md flex items-center justify-center gap-md hover:opacity-90 transition-opacity">
+<span class="material-symbols-outlined">logout</span>
+        Abmelden
+    </button>
+<!-- App Version -->
+<div class="text-center py-md">
+<p class="font-label-sm text-label-sm text-on-surface-variant/60">Version 2.4.0 (Build 892)</p>
+</div>
+</main>
+<!-- BottomNavBar Shell -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center h-20 px-2 pb-safe bg-surface-container-lowest dark:bg-inverse-surface shadow-[0_-4px_12px_rgba(0,0,0,0.04)]">
+<button class="flex flex-col items-center justify-center text-on-surface-variant dark:text-outline-variant hover:bg-surface-container-high transition-all rounded-xxl p-2">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-label-sm text-label-sm">Today</span>
+</button>
+<button class="flex flex-col items-center justify-center text-on-surface-variant dark:text-outline-variant hover:bg-surface-container-high transition-all rounded-xxl p-2">
+<span class="material-symbols-outlined">timeline</span>
+<span class="font-label-sm text-label-sm">Timeline</span>
+</button>
+<button class="flex flex-col items-center justify-center text-on-surface-variant dark:text-outline-variant hover:bg-surface-container-high transition-all rounded-xxl p-2">
+<span class="material-symbols-outlined">medical_services</span>
+<span class="font-label-sm text-label-sm">Meds</span>
+</button>
+<button class="flex flex-col items-center justify-center text-on-surface-variant dark:text-outline-variant hover:bg-surface-container-high transition-all rounded-xxl p-2">
+<span class="material-symbols-outlined">calendar_today</span>
+<span class="font-label-sm text-label-sm">Doctor</span>
+</button>
+<button class="flex flex-col items-center justify-center bg-primary-container text-on-primary-container rounded-xxl px-4 py-1 scale-105 transition-all duration-200 ease-out">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">person</span>
+<span class="font-label-sm text-label-sm">Profile</span>
+</button>
+</nav>
+<script>
+    // Micro-interactions and simple state handling
+    document.querySelectorAll('button').forEach(button => {
+        button.addEventListener('mousedown', () => {
+            button.classList.add('scale-95');
+        });
+        button.addEventListener('mouseup', () => {
+            button.classList.remove('scale-95');
+        });
+        button.addEventListener('mouseleave', () => {
+            button.classList.remove('scale-95');
+        });
+    });
+
+    // Simple scroll elevation for header
+    window.addEventListener('scroll', () => {
+        const header = document.querySelector('header');
+        if (window.scrollY > 10) {
+            header.classList.add('shadow-md');
+            header.classList.add('bg-white/95');
+            header.classList.add('backdrop-blur-md');
+        } else {
+            header.classList.remove('shadow-md');
+            header.classList.remove('bg-white/95');
+            header.classList.remove('backdrop-blur-md');
+        }
+    });
+</script>
+</body></html>
+
+<!-- Dein Verlauf (Terra) -->
+<!DOCTYPE html><html class="light" lang="de"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Fever History - Health Tracker</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .soft-shadow {
+            box-shadow: 0 8px 24px rgba(0,0,0,0.04);
+        }
+        .timeline-line::before {
+            content: '';
+            position: absolute;
+            left: 19px;
+            top: 40px;
+            bottom: -20px;
+            width: 2px;
+            background: #e7e5e4; /* neutral-200 */
+            z-index: 0;
+        }
+        .timeline-item:last-child .timeline-line::before {
+            display: none;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #e7e5e4;
+            border-radius: 10px;
+        }
+        .transition-active {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "primary": "#4a7c59",
+                        "on-primary": "#ffffff",
+                        "primary-container": "#c9e4d0",
+                        "on-primary-container": "#0b2b17",
+                        "secondary": "#7c6a4a",
+                        "on-secondary": "#ffffff",
+                        "secondary-container": "#f1e4d0",
+                        "on-secondary-container": "#2b210b",
+                        "tertiary": "#7c4a4a",
+                        "on-tertiary": "#ffffff",
+                        "tertiary-container": "#f1d0d0",
+                        "on-tertiary-container": "#2b0b0b",
+                        "background": "#f8f7f5",
+                        "on-background": "#1c1c1a",
+                        "surface": "#f8f7f5",
+                        "on-surface": "#1c1c1a",
+                        "surface-variant": "#e7e5e4",
+                        "on-surface-variant": "#444743",
+                        "outline": "#757872",
+                        "outline-variant": "#c5c7c1",
+                        "error": "#ba1a1a",
+                        "on-error": "#ffffff",
+                        "surface-container-lowest": "#ffffff",
+                        "surface-container-low": "#f3f2f1",
+                        "surface-container": "#ededec",
+                        "surface-container-high": "#e7e6e5",
+                        "surface-container-highest": "#e1e1e0"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.75rem",
+                        "lg": "1rem",
+                        "xl": "1.25rem",
+                        "2xl": "1.5rem",
+                        "3xl": "2rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "xl": "32px",
+                        "margin-mobile": "20px",
+                        "lg": "24px",
+                        "gutter": "16px",
+                        "margin-desktop": "40px",
+                        "base": "4px",
+                        "sm": "12px",
+                        "xs": "8px",
+                        "md": "16px",
+                        "xxl": "48px"
+                    },
+                    "fontFamily": {
+                        "body-lg": ["Nunito Sans"],
+                        "body-sm": ["Nunito Sans"],
+                        "label-sm": ["Nunito Sans"],
+                        "headline-lg": ["Nunito Sans"],
+                        "label-md": ["Nunito Sans"],
+                        "body-md": ["Nunito Sans"],
+                        "headline-sm": ["Nunito Sans"],
+                        "headline-md": ["Nunito Sans"]
+                    },
+                    "fontSize": {
+                        "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                        "body-sm": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                        "label-sm": ["12px", {"lineHeight": "14px", "letterSpacing": "0.02em", "fontWeight": "500"}],
+                        "headline-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                        "label-md": ["14px", {"lineHeight": "16px", "letterSpacing": "0.01em", "fontWeight": "600"}],
+                        "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                        "headline-sm": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                        "headline-md": ["24px", {"lineHeight": "32px", "fontWeight": "700"}]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            min-height: max(884px, 100dvh);
+            font-family: 'Nunito Sans', sans-serif;
+        }
+    </style>
+</head>
+<body class="bg-background font-body-md text-on-background min-h-screen pb-24">
+<!-- Top Navigation Bar -->
+<header class="fixed top-0 w-full bg-surface z-50 shadow-sm border-b border-surface-container h-16 flex justify-between items-center px-margin-mobile md:px-margin-desktop">
+<div class="flex items-center gap-md">
+<div class="w-10 h-10 rounded-full bg-surface-container-high flex items-center justify-center overflow-hidden border-2 border-primary-container">
+<img alt="Profile" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCZp_Tay5HjFuaxYZ9KC0WJJvNXe9KoSSNJg8Z70bVCtBzWhSmUQkpZCQPsB3DRoUiVlH9WUXsmZshfUaHOumXKBcB-nLO3csI7Zm3cMsKtWBPTDofVqSyZXskEdJpV06MhDOIyKXQM_ejArNK-7MQfIEZMIz0bMD427OJBQ1--2HM9qkhXLm4EWPAoYdsaNr8SkHasCyTBriOqAUJ5LlPGcOcU_xsgnR5shuBBYWuLjqbqnkzqM9f3-yusgk4qWhYg3KtZJQ1cQiKk">
+</div>
+<h1 class="font-headline-sm text-primary">Timeline</h1>
+</div>
+<button class="material-symbols-outlined text-primary text-2xl hover:opacity-80 transition-opacity">notifications</button>
+</header>
+<main class="mt-20 px-margin-mobile md:max-w-[800px] md:mx-auto">
+<!-- Graph Section -->
+<section class="bg-surface-container-lowest rounded-2xl p-lg soft-shadow mb-xl border border-surface-container">
+<div class="flex justify-between items-end mb-lg">
+<div>
+<p class="font-label-md text-on-surface-variant mb-1">Letzte Messung</p>
+<div class="flex items-baseline gap-xs">
+<span class="font-headline-lg text-tertiary">38.4°C</span>
+<span class="font-label-sm px-3 py-1 rounded-full bg-tertiary-container text-on-tertiary-container font-medium shadow-sm border border-tertiary/10">Leicht erhöht</span>
+</div>
+</div>
+<div class="flex bg-surface-container p-1 rounded-full">
+<button class="px-4 py-1.5 rounded-full font-label-sm transition-active bg-primary text-on-primary" onclick="updateActiveTab(this)">24h</button>
+<button class="px-4 py-1.5 rounded-full font-label-sm transition-active text-on-surface-variant hover:bg-surface-variant" onclick="updateActiveTab(this)">7 Tage</button>
+<button class="px-4 py-1.5 rounded-full font-label-sm transition-active text-on-surface-variant hover:bg-surface-variant" onclick="updateActiveTab(this)">30 Tage</button>
+</div>
+</div>
+<!-- Temperature Visualization Placeholder -->
+<div class="relative h-48 w-full mt-4 flex flex-col justify-end">
+<div class="absolute inset-0 flex items-end justify-between px-2 opacity-10">
+<div class="h-full w-px bg-outline"></div>
+<div class="h-full w-px bg-outline"></div>
+<div class="h-full w-px bg-outline"></div>
+<div class="h-full w-px bg-outline"></div>
+<div class="h-full w-px bg-outline"></div>
+</div>
+<div class="relative w-full h-32 flex items-end">
+<svg class="w-full h-full overflow-visible" viewBox="0 0 400 100">
+<path d="M0,80 Q50,90 100,50 T200,20 T300,60 T400,70" fill="none" stroke="#4a7c59" stroke-linecap="round" stroke-width="3"></path>
+<circle class="animate-pulse" cx="200" cy="20" fill="#7c4a4a" r="6"></circle>
+<rect fill="url(#grad1)" height="60" opacity="0.1" width="400" x="0" y="40"></rect>
+<defs>
+<linearGradient id="grad1" x1="0%" x2="0%" y1="0%" y2="100%">
+<stop offset="0%" style="stop-color:#4a7c59;stop-opacity:1"></stop>
+<stop offset="100%" style="stop-color:#4a7c59;stop-opacity:0"></stop>
+</linearGradient>
+</defs>
+</svg>
+</div>
+<div class="flex justify-between mt-4 font-label-sm text-on-surface-variant opacity-60">
+<span class="">Gestern</span>
+<span class="">08:00</span>
+<span class="">16:00</span>
+<span class="">Heute</span>
+</div>
+</div>
+</section>
+<!-- Timeline Entries -->
+<section class="space-y-md">
+<h2 class="font-headline-sm text-on-surface px-1">Verlauf</h2>
+<!-- Entry 1: Elevated Fever -->
+<div class="timeline-item relative pl-12 timeline-line">
+<div class="absolute left-0 top-0 w-10 h-10 rounded-full bg-tertiary-container text-on-tertiary-container flex items-center justify-center z-10 shadow-sm">
+<span class="material-symbols-outlined">thermometer</span>
+</div>
+<div class="bg-surface-container-lowest p-md rounded-xl soft-shadow group transition-active hover:scale-[1.01] border border-surface-container">
+<div class="flex justify-between items-start mb-1">
+<span class="font-label-md text-on-surface-variant">Heute, 09:15</span>
+<div class="flex gap-xs opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="p-1 text-on-surface-variant hover:text-primary transition-colors"><span class="material-symbols-outlined text-sm">edit</span></button>
+<button class="p-1 text-on-surface-variant hover:text-error transition-colors"><span class="material-symbols-outlined text-sm">delete</span></button>
+</div>
+</div>
+<div class="flex items-center gap-md">
+<span class="font-headline-md text-tertiary">38.4°C</span>
+<span class="px-3 py-1 bg-tertiary-container text-on-tertiary-container rounded-full text-label-sm font-medium">Leichtes Fieber</span>
+</div>
+</div>
+</div>
+<!-- Entry 2: Medication -->
+<div class="timeline-item relative pl-12 timeline-line">
+<div class="absolute left-0 top-0 w-10 h-10 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center z-10 shadow-sm">
+<span class="material-symbols-outlined">medical_services</span>
+</div>
+<div class="bg-surface-container-lowest p-md rounded-xl soft-shadow group transition-active hover:scale-[1.01] border border-surface-container">
+<div class="flex justify-between items-start mb-1">
+<span class="font-label-md text-on-surface-variant">Heute, 08:30</span>
+<div class="flex gap-xs opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="p-1 text-on-surface-variant hover:text-primary transition-colors"><span class="material-symbols-outlined text-sm">edit</span></button>
+<button class="p-1 text-on-surface-variant hover:text-error transition-colors"><span class="material-symbols-outlined text-sm">delete</span></button>
+</div>
+</div>
+<div class="flex flex-col">
+<span class="font-headline-sm text-primary">Paracetamol Saft</span>
+<span class="font-body-sm text-on-surface-variant">Dosis: 5ml</span>
+</div>
+</div>
+</div>
+<!-- Entry 3: Normal Temp -->
+<div class="timeline-item relative pl-12 timeline-line">
+<div class="absolute left-0 top-0 w-10 h-10 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center z-10 shadow-sm">
+<span class="material-symbols-outlined">thermometer</span>
+</div>
+<div class="bg-surface-container-lowest p-md rounded-xl soft-shadow group transition-active hover:scale-[1.01] border border-surface-container">
+<div class="flex justify-between items-start mb-1">
+<span class="font-label-md text-on-surface-variant">Gestern, 22:45</span>
+<div class="flex gap-xs opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="p-1 text-on-surface-variant hover:text-primary transition-colors"><span class="material-symbols-outlined text-sm">edit</span></button>
+<button class="p-1 text-on-surface-variant hover:text-error transition-colors"><span class="material-symbols-outlined text-sm">delete</span></button>
+</div>
+</div>
+<div class="flex items-center gap-md">
+<span class="font-headline-md text-secondary">37.1°C</span>
+<span class="px-3 py-1 bg-secondary-container text-on-secondary-container rounded-full text-label-sm font-medium">Normal</span>
+</div>
+</div>
+</div>
+<!-- Entry 4: Sleep Note -->
+<div class="timeline-item relative pl-12">
+<div class="absolute left-0 top-0 w-10 h-10 rounded-full bg-surface-container text-on-surface-variant flex items-center justify-center z-10 shadow-sm">
+<span class="material-symbols-outlined">nights_stay</span>
+</div>
+<div class="bg-surface-container-lowest p-md rounded-xl soft-shadow group transition-active hover:scale-[1.01] border border-surface-container">
+<div class="flex justify-between items-start mb-1">
+<span class="font-label-md text-on-surface-variant">Gestern, 20:00</span>
+<div class="flex gap-xs opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="p-1 text-on-surface-variant hover:text-primary transition-colors"><span class="material-symbols-outlined text-sm">edit</span></button>
+<button class="p-1 text-on-surface-variant hover:text-error transition-colors"><span class="material-symbols-outlined text-sm">delete</span></button>
+</div>
+</div>
+<div class="flex flex-col">
+<span class="font-headline-sm text-on-surface">Schlafenszeit</span>
+<p class="font-body-sm text-on-surface-variant">Kind ist ruhig eingeschlafen nach dem Wadenwickel.</p>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- FAB for adding entry -->
+<button class="fixed bottom-28 right-6 w-14 h-14 bg-primary text-on-primary rounded-xl shadow-lg flex items-center justify-center hover:scale-105 active:scale-95 transition-all z-40">
+<span class="material-symbols-outlined text-3xl">add</span>
+</button>
+<!-- Bottom Navigation Bar -->
+<nav class="fixed bottom-0 left-0 w-full z-50 bg-surface-container-lowest border-t border-surface-container h-20 px-2 pb-safe flex justify-around items-center">
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-label-sm mt-1">Today</span>
+</a>
+<a class="flex flex-col items-center justify-center bg-primary-container text-on-primary-container rounded-xl px-4 py-1.5 active:scale-105 transition-all duration-200 ease-out" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">timeline</span>
+<span class="font-label-sm mt-0.5">Timeline</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined">medical_services</span>
+<span class="font-label-sm mt-1">Meds</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined">calendar_today</span>
+<span class="font-label-sm mt-1">Doctor</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined">person</span>
+<span class="font-label-sm mt-1">Profile</span>
+</a>
+</nav>
+<script>
+        function updateActiveTab(btn) {
+            const container = btn.parentElement;
+            const buttons = container.querySelectorAll('button');
+            
+            buttons.forEach(b => {
+                b.classList.remove('bg-primary', 'text-on-primary');
+                b.classList.add('text-on-surface-variant', 'hover:bg-surface-variant');
+            });
+            
+            btn.classList.add('bg-primary', 'text-on-primary');
+            btn.classList.remove('text-on-surface-variant', 'hover:bg-surface-variant');
+
+            const path = document.querySelector('svg path');
+            path.style.opacity = '0';
+            setTimeout(() => {
+                const points = Array.from({length: 5}, () => Math.floor(Math.random() * 80) + 10);
+                path.setAttribute('d', `M0,80 Q50,${points[0]} 100,${points[1]} T200,${points[2]} T300,${points[3]} T400,${points[4]}`);
+                path.style.opacity = '1';
+            }, 300);
+        }
+    </script>
+
+
+</body></html>
+
+<!-- Heute - Dashboard (Terra) -->
+<!DOCTYPE html>
+
+<html class="light" lang="de"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport"/>
+<title>Health Tracker - Dashboard</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "surface-container-highest": "#e0e1f3",
+                    "on-primary-container": "#232458",
+                    "outline-variant": "#c8c5d0",
+                    "on-surface-variant": "#46464f",
+                    "inverse-surface": "#2d303d",
+                    "tertiary-container": "#ac8a7a",
+                    "surface-variant": "#e0e1f3",
+                    "surface": "#fbf8ff",
+                    "secondary-fixed": "#c2ebde",
+                    "secondary-container": "#bfe8db",
+                    "on-primary-fixed-variant": "#404177",
+                    "inverse-on-surface": "#efefff",
+                    "background": "#fbf8ff",
+                    "on-background": "#181b27",
+                    "tertiary": "#75584a",
+                    "on-surface": "#181b27",
+                    "on-secondary-fixed-variant": "#284d44",
+                    "outline": "#777680",
+                    "on-primary-fixed": "#141449",
+                    "primary-container": "#8b8cc7",
+                    "surface-bright": "#fbf8ff",
+                    "primary": "#585990",
+                    "on-tertiary-container": "#3b2519",
+                    "surface-container-high": "#e6e7f9",
+                    "primary-fixed": "#e1e0ff",
+                    "on-primary": "#ffffff",
+                    "on-error": "#ffffff",
+                    "inverse-primary": "#c1c1ff",
+                    "surface-container": "#ececfe",
+                    "error": "#ba1a1a",
+                    "surface-container-lowest": "#ffffff",
+                    "surface-container-low": "#f3f2ff",
+                    "on-tertiary-fixed": "#2b170c",
+                    "on-tertiary": "#ffffff",
+                    "on-error-container": "#93000a",
+                    "tertiary-fixed-dim": "#e4bfad",
+                    "surface-dim": "#d8d9ea",
+                    "error-container": "#ffdad6",
+                    "secondary-fixed-dim": "#a6cfc2",
+                    "on-secondary-container": "#446a5f",
+                    "tertiary-fixed": "#ffdbcb",
+                    "on-tertiary-fixed-variant": "#5b4134",
+                    "surface-tint": "#585990",
+                    "primary-fixed-dim": "#c1c1ff",
+                    "on-secondary": "#ffffff",
+                    "on-secondary-fixed": "#00201a",
+                    "secondary": "#40665b"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "lg": "24px",
+                    "xxl": "48px",
+                    "margin-mobile": "20px",
+                    "xs": "8px",
+                    "xl": "32px",
+                    "md": "16px",
+                    "gutter": "16px",
+                    "margin-desktop": "40px",
+                    "base": "4px",
+                    "sm": "12px"
+            },
+            "fontFamily": {
+                    "headline-lg": ["Plus Jakarta Sans"],
+                    "headline-sm": ["Plus Jakarta Sans"],
+                    "headline-md": ["Plus Jakarta Sans"],
+                    "body-lg": ["Plus Jakarta Sans"],
+                    "label-sm": ["Plus Jakarta Sans"],
+                    "body-md": ["Plus Jakarta Sans"],
+                    "label-md": ["Plus Jakarta Sans"],
+                    "body-sm": ["Plus Jakarta Sans"]
+            },
+            "fontSize": {
+                    "headline-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "headline-lg-mobile": ["28px", {"lineHeight": "36px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "headline-sm": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                    "headline-sm-mobile": ["18px", {"lineHeight": "24px", "fontWeight": "600"}],
+                    "headline-md": ["24px", {"lineHeight": "32px", "fontWeight": "700"}],
+                    "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                    "label-sm": ["12px", {"lineHeight": "14px", "letterSpacing": "0.02em", "fontWeight": "500"}],
+                    "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                    "label-md": ["14px", {"lineHeight": "16px", "letterSpacing": "0.01em", "fontWeight": "600"}],
+                    "body-sm": ["14px", {"lineHeight": "20px", "fontWeight": "400"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body {
+            background-color: #fbf8ff; /* Fallback */
+            -webkit-tap-highlight-color: transparent;
+        }
+        /* Applying Terra Design System palette overrides */
+        :root {
+            --primary: #4a7c59;
+            --on-primary: #ffffff;
+            --primary-container: #c8e6c9;
+            --on-primary-container: #00210b;
+            --secondary: #5a624a;
+            --on-secondary: #ffffff;
+            --secondary-container: #dfe6c9;
+            --on-secondary-container: #171e0c;
+            --surface: #fdfdf5;
+            --on-surface: #1a1c18;
+            --surface-variant: #e1e4d5;
+            --on-surface-variant: #44483d;
+            --outline: #75796c;
+        }
+        .light body {
+            background-color: var(--surface);
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            user-select: none;
+        }
+        .soft-card {
+            background: #ffffff;
+            box-shadow: 0 4px 20px rgba(74, 124, 89, 0.06);
+            border-radius: 24px;
+        }
+        .calendar-strip-item.active {
+            background-color: var(--primary) !important;
+            color: var(--on-primary) !important;
+            box-shadow: 0 4px 12px rgba(74, 124, 89, 0.2);
+        }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        .timeline-line::before {
+            content: '';
+            position: absolute;
+            left: 7px;
+            top: 24px;
+            bottom: -24px;
+            width: 2px;
+            background: var(--surface-variant);
+        }
+        .timeline-item:last-child .timeline-line::before {
+            display: none;
+        }
+    </style>
+</head>
+<body class="font-body-md text-on-surface bg-surface">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full bg-surface/80 backdrop-blur-md z-50 flex justify-between items-center h-16 px-margin-mobile md:px-margin-desktop border-b border-surface-variant/30">
+<div class="flex items-center gap-sm">
+<div class="w-10 h-10 rounded-full overflow-hidden ring-2 ring-primary/20 ring-offset-2">
+<img class="w-full h-full object-cover" data-alt="A warm, soft-focus portrait of a smiling toddler in a bright, airy room with natural light. The aesthetic is clean and modern, following a light-mode color palette with gentle lavender and pastel mint tones in the background. The child has a gentle expression, evoking a sense of care and health, perfect for a parenting health app icon." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBEWtREX1SehJE5T2m_0Atj-EXnqxpOiUiDB4am_ky2wOkH8ER8Zk1ZblpXpjgLInSSx_hsWbDdp3Sf-f3Q_3OeHd_y6N0cnrptWxD1rGpx53wYWwJ45v4zlhL02LFUDgg-zl2agMFu3R2P6jZIPM-uMmXv1O7XAQdANKhnzDYzsphRYGt_96qgrxdJPWdgRAkANL32KS4Ug9RfWG77oPRI2EcLaFACpohNeOWNW2JF0EoEdUo6h1C1vZCq8bvdrQ_TlUejtFb53WjD"/>
+</div>
+<div>
+<p class="font-label-sm text-label-sm text-on-surface-variant">Guten Morgen,</p>
+<h1 class="font-headline-sm text-headline-sm-mobile md:text-headline-sm text-primary" style="color: var(--primary);">Leo &amp; Mama</h1>
+</div>
+</div>
+<button class="w-10 h-10 flex items-center justify-center rounded-full bg-surface-container-high text-primary hover:bg-primary/10 transition-colors active:scale-95 duration-200">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+</header>
+<main class="pt-20 pb-32 max-w-[800px] mx-auto px-margin-mobile md:px-margin-desktop space-y-xl">
+<!-- Section: Heute (Calendar Strip) -->
+<section class="space-y-md">
+<div class="flex justify-between items-end">
+<h2 class="font-headline-md text-headline-md text-on-surface">Heute</h2>
+<span class="font-label-md text-label-md text-primary" style="color: var(--primary);">Januar 2024</span>
+</div>
+<div class="flex gap-sm overflow-x-auto no-scrollbar py-2">
+<!-- Simple active calendar logic: today is Wednesday -->
+<div class="flex-shrink-0 w-14 h-20 flex flex-col items-center justify-center rounded-xl bg-surface-variant/40 text-on-surface-variant">
+<span class="text-label-sm">Mo</span>
+<span class="font-headline-sm">15</span>
+</div>
+<div class="flex-shrink-0 w-14 h-20 flex flex-col items-center justify-center rounded-xl bg-surface-variant/40 text-on-surface-variant">
+<span class="text-label-sm">Di</span>
+<span class="font-headline-sm">16</span>
+</div>
+<div class="flex-shrink-0 w-14 h-20 flex flex-col items-center justify-center rounded-xl calendar-strip-item active">
+<span class="text-label-sm">Mi</span>
+<span class="font-headline-sm">17</span>
+</div>
+<div class="flex-shrink-0 w-14 h-20 flex flex-col items-center justify-center rounded-xl bg-surface-variant/40 text-on-surface-variant">
+<span class="text-label-sm">Do</span>
+<span class="font-headline-sm">18</span>
+</div>
+<div class="flex-shrink-0 w-14 h-20 flex flex-col items-center justify-center rounded-xl bg-surface-variant/40 text-on-surface-variant">
+<span class="text-label-sm">Fr</span>
+<span class="font-headline-sm">19</span>
+</div>
+<div class="flex-shrink-0 w-14 h-20 flex flex-col items-center justify-center rounded-xl bg-surface-variant/40 text-on-surface-variant">
+<span class="text-label-sm">Sa</span>
+<span class="font-headline-sm">20</span>
+</div>
+<div class="flex-shrink-0 w-14 h-20 flex flex-col items-center justify-center rounded-xl bg-surface-variant/40 text-on-surface-variant">
+<span class="text-label-sm">So</span>
+<span class="font-headline-sm">21</span>
+</div>
+</div>
+</section>
+<!-- Section: Letzte Messung -->
+<section class="soft-card p-lg flex flex-col md:flex-row items-center justify-between gap-lg bg-white">
+<div class="flex items-center gap-lg">
+<div class="w-16 h-16 rounded-2xl bg-secondary-container flex items-center justify-center text-on-secondary-container" style="background-color: var(--secondary-container); color: var(--on-secondary-container);">
+<span class="material-symbols-outlined text-4xl" style="font-variation-settings: 'FILL' 1;">device_thermostat</span>
+</div>
+<div>
+<h3 class="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Letzte Messung</h3>
+<div class="flex items-baseline gap-xs">
+<span class="font-headline-lg text-headline-lg-mobile md:text-headline-lg text-on-surface">37.2</span>
+<span class="font-headline-sm text-on-surface-variant">°C</span>
+<span class="ml-sm px-2 py-0.5 rounded-full bg-secondary-container text-on-secondary-container text-label-sm font-semibold" style="background-color: var(--secondary-container); color: var(--on-secondary-container);">Normal</span>
+</div>
+<p class="font-body-sm text-body-sm text-outline" style="color: var(--outline);">Heute, vor 2 Stunden</p>
+</div>
+</div>
+<button class="w-full md:w-auto px-lg py-md text-on-primary rounded-full font-label-md hover:opacity-90 active:scale-95 transition-all flex items-center justify-center gap-xs" style="background-color: var(--primary); color: var(--on-primary);">
+<span class="material-symbols-outlined">add</span>
+                Fieber messen
+            </button>
+</section>
+<!-- Section: Schnell eintragen (Bento Grid) -->
+<section class="space-y-md">
+<h2 class="font-headline-md text-headline-md text-on-surface">Schnell eintragen</h2>
+<div class="grid grid-cols-2 md:grid-cols-3 gap-md">
+<button class="soft-card p-md flex flex-col items-center justify-center gap-sm hover:bg-primary/5 transition-colors active:scale-95 bg-white">
+<div class="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary" style="color: var(--primary);">
+<span class="material-symbols-outlined">thermometer</span>
+</div>
+<span class="font-label-md">Temperatur</span>
+</button>
+<button class="soft-card p-md flex flex-col items-center justify-center gap-sm hover:bg-secondary/5 transition-colors active:scale-95 bg-white">
+<div class="w-12 h-12 rounded-full bg-secondary/10 flex items-center justify-center text-secondary" style="color: var(--secondary);">
+<span class="material-symbols-outlined">medical_services</span>
+</div>
+<span class="font-label-md">Medikament</span>
+</button>
+<button class="soft-card p-md col-span-2 md:col-span-1 flex flex-col md:flex-col items-center justify-center gap-sm hover:bg-secondary/5 transition-colors active:scale-95 bg-white">
+<div class="w-12 h-12 rounded-full bg-secondary-container/50 flex items-center justify-center text-secondary" style="color: var(--secondary);">
+<span class="material-symbols-outlined">calendar_today</span>
+</div>
+<span class="font-label-md">Arzttermin</span>
+</button>
+</div>
+</section>
+<!-- Section: Aktive Erinnerungen -->
+<section class="space-y-md">
+<h2 class="font-headline-md text-headline-md text-on-surface">Aktive Erinnerungen</h2>
+<div class="soft-card p-lg space-y-lg bg-white">
+<!-- Reminder Item 1 -->
+<div class="relative timeline-item flex gap-lg">
+<div class="relative z-10 timeline-line">
+<div class="w-4 h-4 rounded-full ring-4 ring-primary/20" style="background-color: var(--primary);"></div>
+</div>
+<div class="flex-1 -mt-1">
+<div class="flex justify-between items-start">
+<div>
+<h4 class="font-label-md" style="color: var(--primary);">14:30 Uhr</h4>
+<p class="font-body-md font-semibold text-on-surface">Paracetamol Zäpfchen</p>
+<p class="font-body-sm text-on-surface-variant">Dosis: 125mg • Geplante Gabe</p>
+</div>
+<button class="p-sm text-outline hover:text-primary transition-colors" style="color: var(--outline);">
+<span class="material-symbols-outlined">check_circle</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Reminder Item 2 -->
+<div class="relative timeline-item flex gap-lg">
+<div class="relative z-10 timeline-line">
+<div class="w-4 h-4 rounded-full bg-surface-variant" style="background-color: var(--surface-variant);"></div>
+</div>
+<div class="flex-1 -mt-1">
+<div class="flex justify-between items-start">
+<div>
+<h4 class="font-label-md text-outline" style="color: var(--outline);">18:00 Uhr</h4>
+<p class="font-body-md font-semibold text-on-surface-variant">Wadenwickel</p>
+<p class="font-body-sm text-outline" style="color: var(--outline);">Nur bei Bedarf (Temperatur &gt; 38.5°C)</p>
+</div>
+<button class="p-sm text-outline hover:text-primary transition-colors" style="color: var(--outline);">
+<span class="material-symbols-outlined">radio_button_unchecked</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Reminder Item 3 -->
+<div class="relative timeline-item flex gap-lg">
+<div class="relative z-10 timeline-line">
+<div class="w-4 h-4 rounded-full bg-surface-variant" style="background-color: var(--surface-variant);"></div>
+</div>
+<div class="flex-1 -mt-1">
+<div class="flex justify-between items-start">
+<div>
+<h4 class="font-label-md text-outline" style="color: var(--outline);">Morgen, 09:00 Uhr</h4>
+<p class="font-body-md font-semibold text-on-surface-variant">U6 Untersuchung</p>
+<p class="font-body-sm text-outline" style="color: var(--outline);">Dr. Müller • Kinderarztpraxis</p>
+</div>
+<button class="p-sm text-outline hover:text-primary transition-colors" style="color: var(--outline);">
+<span class="material-symbols-outlined">event</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Illustration / Motivational Card -->
+<section class="relative h-48 rounded-[32px] overflow-hidden group">
+<div class="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-105" data-alt="A soft, watercolor-style illustration of a peaceful nursery with a sunbeam streaming through a window. Gentle pastel lavender and soft mint colors create a serene, supportive atmosphere. The style is minimalist and clean, representing safety and calm for a parent using a health tracking app." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBh8Ev1aaV3vL65sxmqtc0Yke2kIuTeTnh1mgRxXszE9lp5CfRXTQJawNg2VyxOOsi-B933HGEtCK6l6LLf3fHgVpGiCq0HZhNbyA0p6Wf2H8NQ_tCp3XVK8iposzhUxmzJGHUI6smFeshe0XoqsZyvIkKmzPbkMG70XqaevnhE90ZrNviR8TvJ-yzlconasXk-T4yYv_0S_OeVLcLlJj7S2wvzYYaG_Ec7LiUlt-QpEJlAA8G44IV4tAW1y9Lg-olCNm-Y5Mn_0s6F')"></div>
+<div class="absolute inset-0 bg-gradient-to-r from-[#4a7c59]/80 to-transparent flex items-center p-xl">
+<div class="max-w-[200px]">
+<p class="text-white font-headline-sm text-headline-sm-mobile">Du machst das toll, Mama!</p>
+<p class="text-white/80 text-body-sm mt-xs">Leo schläft gerade ruhig.</p>
+</div>
+</div>
+</section>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center h-20 px-2 pb-safe bg-white border-t border-surface-variant/30 shadow-[0_-4px_24px_rgba(74,124,89,0.06)] rounded-t-[24px]">
+<a class="flex flex-col items-center justify-center text-on-primary rounded-full px-5 py-1 active:scale-105 transition-all duration-200 ease-out" href="#" style="background-color: var(--primary);">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">dashboard</span>
+<span class="font-label-sm text-label-sm">Today</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:bg-primary/5 p-2 rounded-xl transition-all" href="#">
+<span class="material-symbols-outlined">timeline</span>
+<span class="font-label-sm text-label-sm">Timeline</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:bg-primary/5 p-2 rounded-xl transition-all" href="#">
+<span class="material-symbols-outlined">medical_services</span>
+<span class="font-label-sm text-label-sm">Meds</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:bg-primary/5 p-2 rounded-xl transition-all" href="#">
+<span class="material-symbols-outlined">calendar_today</span>
+<span class="font-label-sm text-label-sm">Doctor</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:bg-primary/5 p-2 rounded-xl transition-all" href="#">
+<span class="material-symbols-outlined">person</span>
+<span class="font-label-sm text-label-sm">Profile</span>
+</a>
+</nav>
+<!-- Floating Action Button -->
+<button class="fixed right-6 bottom-24 w-14 h-14 text-on-primary rounded-2xl shadow-lg flex items-center justify-center active:scale-95 transition-transform" style="background-color: var(--primary); color: var(--on-primary);">
+<span class="material-symbols-outlined text-3xl">add</span>
+</button>
+<script>
+        // Micro-interactions for calendar strip updated for Terra Design
+        document.querySelectorAll('.calendar-strip-item, .flex-shrink-0').forEach(item => {
+            item.addEventListener('click', () => {
+                document.querySelectorAll('.calendar-strip-item, .flex-shrink-0').forEach(i => {
+                    i.classList.remove('active', 'shadow-lg');
+                    i.style.backgroundColor = 'rgba(225, 228, 213, 0.4)';
+                    i.style.color = 'var(--on-surface-variant)';
+                });
+                item.classList.add('active', 'shadow-lg');
+                item.style.backgroundColor = 'var(--primary)';
+                item.style.color = 'var(--on-primary)';
+            });
+        });
+    </script>
+</body></html>
