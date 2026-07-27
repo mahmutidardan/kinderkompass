@@ -1,9 +1,9 @@
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Tabs } from 'expo-router';
 import React from 'react';
 import { StyleSheet } from 'react-native';
 
 import { HapticTab } from '@/components/haptic-tab';
-import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Design } from '@/constants/design';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -14,30 +14,31 @@ export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Design.colors.primary,
-        tabBarInactiveTintColor: Design.colors.inkFaint,
-        tabBarActiveBackgroundColor: Design.colors.primarySoft,
+        tabBarActiveTintColor: Design.dashboard.colors.onPrimary,
+        tabBarInactiveTintColor: Design.dashboard.colors.onSurfaceVariant,
+        tabBarActiveBackgroundColor: Design.dashboard.colors.primary,
         tabBarStyle: {
           position: 'absolute',
           left: 0,
           right: 0,
           bottom: tabBarBottom,
-          height: Design.navigation.tabBarHeight + insets.bottom,
-          paddingTop: 7,
-          paddingBottom: Math.max(insets.bottom, 7),
-          paddingHorizontal: 7,
-          backgroundColor: Design.colors.surfaceRaised,
+          height: 80 + insets.bottom,
+          paddingTop: 6,
+          paddingBottom: Math.max(insets.bottom, 6),
+          paddingHorizontal: 2,
+          backgroundColor: Design.colors.surface,
           borderTopWidth: StyleSheet.hairlineWidth,
-          borderTopColor: Design.colors.border,
-          borderRadius: 0,
-          shadowColor: Design.colors.shadow,
+          borderTopColor: Design.dashboard.colors.borderSoft,
+          borderTopLeftRadius: Design.dashboard.radius.nav,
+          borderTopRightRadius: Design.dashboard.radius.nav,
+          shadowColor: Design.dashboard.colors.primary,
           shadowOffset: { width: 0, height: -4 },
           shadowOpacity: 0.06,
-          shadowRadius: 18,
+          shadowRadius: 24,
           elevation: 5,
         },
-        tabBarItemStyle: { borderRadius: 16, marginHorizontal: 0 },
-        tabBarLabelStyle: { fontSize: 10, lineHeight: 14, fontFamily: Design.fonts.bold, marginTop: 1, letterSpacing: -0.35 },
+        tabBarItemStyle: { borderRadius: Design.dashboard.radius.round, marginHorizontal: 3, marginVertical: 4, overflow: 'hidden' },
+        tabBarLabelStyle: { fontSize: 11, lineHeight: 14, fontFamily: Design.fonts.dashboardMedium, marginTop: 1, letterSpacing: 0.2 },
         tabBarIconStyle: { marginTop: 1 },
         headerShown: false,
         tabBarHideOnKeyboard: true,
@@ -47,35 +48,35 @@ export default function TabLayout() {
         name="index"
         options={{
           title: 'Heute',
-          tabBarIcon: ({ color }) => <IconSymbol size={23} name="house.fill" color={color} />,
+          tabBarIcon: ({ color }) => <MaterialIcons size={24} name="dashboard" color={color} />,
         }}
       />
       <Tabs.Screen
         name="verlauf"
         options={{
           title: 'Verlauf',
-          tabBarIcon: ({ color }) => <IconSymbol size={23} name="chart.xyaxis.line" color={color} />,
+          tabBarIcon: ({ color }) => <MaterialIcons size={24} name="timeline" color={color} />,
         }}
       />
       <Tabs.Screen
         name="medikamente"
         options={{
           title: 'Inventar',
-          tabBarIcon: ({ color }) => <IconSymbol size={23} name="cross.case.fill" color={color} />,
+          tabBarIcon: ({ color }) => <MaterialIcons size={24} name="medical-services" color={color} />,
         }}
       />
       <Tabs.Screen
         name="termine"
         options={{
           title: 'Termine',
-          tabBarIcon: ({ color }) => <IconSymbol size={23} name="calendar" color={color} />,
+          tabBarIcon: ({ color }) => <MaterialIcons size={24} name="calendar-today" color={color} />,
         }}
       />
       <Tabs.Screen
         name="familie"
         options={{
           title: 'Familie',
-          tabBarIcon: ({ color }) => <IconSymbol size={23} name="person.2.fill" color={color} />,
+          tabBarIcon: ({ color }) => <MaterialIcons size={24} name="person" color={color} />,
         }}
       />
     </Tabs>

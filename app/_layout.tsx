@@ -18,6 +18,12 @@ import {
   NunitoSans_700Bold,
 } from '@expo-google-fonts/nunito-sans';
 import { Literata_600SemiBold, Literata_700Bold } from '@expo-google-fonts/literata';
+import {
+  PlusJakartaSans_400Regular,
+  PlusJakartaSans_500Medium,
+  PlusJakartaSans_600SemiBold,
+  PlusJakartaSans_700Bold,
+} from '@expo-google-fonts/plus-jakarta-sans';
 import 'react-native-reanimated';
 
 import { Design } from '@/constants/design';
@@ -62,6 +68,10 @@ function AppNavigator() {
     NunitoSans_700Bold,
     Literata_600SemiBold,
     Literata_700Bold,
+    PlusJakartaSans_400Regular,
+    PlusJakartaSans_500Medium,
+    PlusJakartaSans_600SemiBold,
+    PlusJakartaSans_700Bold,
   });
   const theme = {
     ...DefaultTheme,

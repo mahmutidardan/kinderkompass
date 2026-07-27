@@ -1,3 +1,4 @@
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useEffect, useMemo, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
@@ -23,6 +24,10 @@ type ReminderItem = {
   notificationId?: string;
 };
 
+type Props = {
+  appearance?: 'default' | 'dashboard';
+};
+
 function formatReminderDate(value: string) {
   const date = new Date(value);
   const today = new Date();
@@ -34,7 +39,19 @@ function formatReminderDate(value: string) {
   return `${day} · ${time} Uhr`;
 }
 
-export function ReminderCenter() {
+function formatDashboardReminderDate(value: string) {
+  const date = new Date(value);
+  const today = new Date();
+  const tomorrow = new Date();
+  tomorrow.setDate(today.getDate() + 1);
+  const sameDay = (candidate: Date, target: Date) => candidate.toDateString() === target.toDateString();
+  const time = new Intl.DateTimeFormat('de-DE', { hour: '2-digit', minute: '2-digit' }).format(date);
+  if (sameDay(date, today)) return `${time} Uhr`;
+  if (sameDay(date, tomorrow)) return `Morgen, ${time} Uhr`;
+  return `${new Intl.DateTimeFormat('de-DE', { day: '2-digit', month: '2-digit' }).format(date)}, ${time} Uhr`;
+}
+
+export function ReminderCenter({ appearance = 'default' }: Props) {
   const {
     activeChild,
     temperatureReminderAt,
@@ -124,6 +141,50 @@ export function ReminderCenter() {
     setWorkingId(undefined);
   }
 
+  if (appearance === 'dashboard') {
+    return (
+      <View style={styles.dashboardSection}>
+        <Text style={styles.dashboardTitle}>Aktive Erinnerungen</Text>
+        <View style={styles.dashboardCard}>
+          {permission === 'unsupported' && reminders.length > 0 ? (
+            <View style={styles.dashboardPlatformNotice}>
+              <MaterialIcons name="info-outline" size={20} color={Design.dashboard.colors.outline} />
+              <Text style={styles.dashboardPlatformText}>Browser-Erinnerungen sind keine zuverlässigen Gerätealarme. Verbindliche Alarme funktionieren in der installierten App.</Text>
+            </View>
+          ) : permission === 'denied' ? (
+            <View style={styles.dashboardPlatformNotice}>
+              <MaterialIcons name="notifications-off" size={20} color={Design.colors.danger} />
+              <View style={styles.permissionCopy}><Text style={styles.permissionTitle}>Benachrichtigungen sind aus</Text><Text style={styles.permissionText}>Aktiviere sie in den Geräteeinstellungen.</Text></View>
+              <AppButton label="Einstellungen" variant="secondary" compact onPress={openNotificationSettings} />
+            </View>
+          ) : null}
+          {reminders.length === 0 ? (
+            <View style={styles.dashboardRow}>
+              <View style={styles.dashboardRail}><View style={styles.dashboardDot} /></View>
+              <View style={styles.dashboardCopy}><Text style={styles.dashboardTime}>Alles ruhig</Text><Text style={styles.dashboardLabel}>Keine aktiven Erinnerungen</Text><Text style={styles.dashboardMeta}>Neue Mess-, Nacht-, Medikamenten- und Terminerinnerungen erscheinen hier.</Text></View>
+              <MaterialIcons name="check-circle-outline" size={24} color={Design.dashboard.colors.outline} />
+            </View>
+          ) : reminders.map((item, index) => (
+            <View key={item.id} style={styles.dashboardRow}>
+              <View style={styles.dashboardRail}>
+                <View style={[styles.dashboardDot, index > 0 && styles.dashboardDotInactive]} />
+                {index < reminders.length - 1 ? <View style={styles.dashboardLine} /> : null}
+              </View>
+              <View style={styles.dashboardCopy}>
+                <Text style={[styles.dashboardTime, index > 0 && styles.dashboardTimeInactive]}>{formatDashboardReminderDate(item.at)}</Text>
+                <Text style={[styles.dashboardLabel, index > 0 && styles.dashboardLabelInactive]}>{item.label}</Text>
+                <Text style={styles.dashboardMeta}>{item.detail}</Text>
+              </View>
+              <Pressable accessibilityRole="button" accessibilityLabel={`${item.label} ausschalten`} disabled={workingId === item.id} onPress={() => disable(item)} style={({ pressed }) => [styles.dashboardDone, pressed && styles.pressed, workingId === item.id && styles.disabled]}>
+                <MaterialIcons name={item.kind === 'appointment' ? 'event' : 'check-circle-outline'} size={24} color={Design.dashboard.colors.outline} />
+              </Pressable>
+            </View>
+          ))}
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.section}>
       <View style={styles.heading}>
@@ -162,6 +223,23 @@ export function ReminderCenter() {
 }
 
 const styles = StyleSheet.create({
+  dashboardSection: { gap: 16 },
+  dashboardTitle: { color: Design.dashboard.colors.onSurface, fontSize: 24, lineHeight: 32, fontFamily: Design.fonts.dashboardBold },
+  dashboardCard: { borderRadius: Design.dashboard.radius.card, padding: 24, gap: 24, backgroundColor: Design.colors.surface, ...Design.dashboard.shadow.card },
+  dashboardPlatformNotice: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, paddingBottom: 16, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: Design.dashboard.colors.surfaceVariant },
+  dashboardPlatformText: { flex: 1, color: Design.dashboard.colors.outline, fontSize: 12, lineHeight: 18, fontFamily: Design.fonts.dashboardRegular },
+  dashboardRow: { minHeight: 68, flexDirection: 'row', alignItems: 'flex-start', gap: 24 },
+  dashboardRail: { width: 16, alignItems: 'center', alignSelf: 'stretch' },
+  dashboardDot: { width: 16, height: 16, borderRadius: 8, backgroundColor: Design.dashboard.colors.primary, borderWidth: 4, borderColor: Design.dashboard.colors.primaryContainer, zIndex: 1 },
+  dashboardDotInactive: { backgroundColor: Design.dashboard.colors.surfaceVariant, borderWidth: 0 },
+  dashboardLine: { position: 'absolute', width: 2, top: 24, bottom: -24, backgroundColor: Design.dashboard.colors.surfaceVariant },
+  dashboardCopy: { flex: 1, marginTop: -4 },
+  dashboardTime: { color: Design.dashboard.colors.primary, fontSize: 14, lineHeight: 16, letterSpacing: 0.14, fontFamily: Design.fonts.dashboardSemiBold },
+  dashboardTimeInactive: { color: Design.dashboard.colors.outline },
+  dashboardLabel: { color: Design.dashboard.colors.onSurface, fontSize: 16, lineHeight: 24, fontFamily: Design.fonts.dashboardSemiBold, marginTop: 4 },
+  dashboardLabelInactive: { color: Design.dashboard.colors.onSurfaceVariant },
+  dashboardMeta: { color: Design.dashboard.colors.onSurfaceVariant, fontSize: 14, lineHeight: 20, fontFamily: Design.fonts.dashboardRegular },
+  dashboardDone: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', marginTop: -8 },
   section: { gap: 12 },
   heading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   title: { color: Design.colors.ink, ...Design.type.section, fontFamily: Design.fonts.bold },

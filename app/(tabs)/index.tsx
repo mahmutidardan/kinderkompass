@@ -1,33 +1,21 @@
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
-import { ImageBackground, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { ImageBackground, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { AppShell } from '@/components/app-shell';
 import { ChildAvatar } from '@/components/child-avatar';
 import { EmptyChild } from '@/components/empty-child';
-import { InfoButton } from '@/components/info-button';
 import { ReminderCenter } from '@/components/reminder-center';
-import { IconSymbol } from '@/components/ui/icon-symbol';
+import { AppDialog } from '@/components/ui/app-dialog';
 import { Design } from '@/constants/design';
+import { useConnectivity } from '@/lib/use-connectivity';
 import { useStore } from '@/lib/store';
 import { getTemperatureGuidance } from '@/lib/temperature-guidance';
 
-type DayEntry = {
-  type: 'temp' | 'med';
-  id: string;
-  at: string;
-  label: string;
-  detail: string;
-  color: string;
-};
-
-type TimelineGroup = { time: string; entries: DayEntry[] };
-
+const DASHBOARD = Design.dashboard;
 const WEEKDAY_LABELS = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
-
-function formatTime(value: string) {
-  return new Intl.DateTimeFormat('de-DE', { hour: '2-digit', minute: '2-digit' }).format(new Date(value));
-}
 
 function dateKey(value: Date | string) {
   const date = typeof value === 'string' ? new Date(value) : value;
@@ -37,11 +25,11 @@ function dateKey(value: Date | string) {
   return `${year}-${month}-${day}`;
 }
 
-function getWeek(offset = 0, today = new Date()) {
+function getCurrentWeek(today = new Date()) {
   const mondayOffset = (today.getDay() + 6) % 7;
   const monday = new Date(today);
   monday.setHours(12, 0, 0, 0);
-  monday.setDate(today.getDate() - mondayOffset + offset * 7);
+  monday.setDate(today.getDate() - mondayOffset);
   return Array.from({ length: 7 }, (_, index) => {
     const date = new Date(monday);
     date.setDate(monday.getDate() + index);
@@ -49,368 +37,297 @@ function getWeek(offset = 0, today = new Date()) {
   });
 }
 
-function formatHeaderDate(date: Date) {
-  return new Intl.DateTimeFormat('de-DE', { weekday: 'long', day: 'numeric', month: 'long' }).format(date);
+function formatTime(value: string) {
+  return new Intl.DateTimeFormat('de-DE', { hour: '2-digit', minute: '2-digit' }).format(new Date(value));
 }
 
-function formatSelectedTitle(date: Date) {
-  if (dateKey(date) === dateKey(new Date())) return 'Heute';
-  return new Intl.DateTimeFormat('de-DE', { weekday: 'long' }).format(date);
+function formatMonth(value: Date) {
+  return new Intl.DateTimeFormat('de-DE', { month: 'long', year: 'numeric' }).format(value);
 }
 
-function formatSelectedDate(date: Date) {
-  return new Intl.DateTimeFormat('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(date);
+function formatSelectedDate(value: Date) {
+  return new Intl.DateTimeFormat('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(value);
 }
 
-function formatWeekRange(days: Date[]) {
-  const first = days[0];
-  const last = days.at(-1);
-  if (!first || !last) return '';
-  const short = new Intl.DateTimeFormat('de-DE', { day: '2-digit', month: '2-digit' });
-  return `${short.format(first)} – ${short.format(last)}`;
+function formatMeasurementTime(value: string, selectedIsToday: boolean) {
+  if (!selectedIsToday) return `${formatSelectedDate(new Date(value))}, ${formatTime(value)} Uhr`;
+  const minutes = Math.max(0, Math.round((Date.now() - new Date(value).getTime()) / 60_000));
+  if (minutes < 2) return 'Heute, gerade eben';
+  if (minutes < 60) return `Heute, vor ${minutes} Minuten`;
+  const hours = Math.floor(minutes / 60);
+  return `Heute, vor ${hours} ${hours === 1 ? 'Stunde' : 'Stunden'}`;
 }
 
-function groupEntries(entries: DayEntry[]) {
-  return entries.reduce<TimelineGroup[]>((groups, entry) => {
-    const time = formatTime(entry.at);
-    const current = groups.at(-1);
-    if (current?.time === time) current.entries.push(entry);
-    else groups.push({ time, entries: [entry] });
-    return groups;
-  }, []);
+function greeting() {
+  const hour = new Date().getHours();
+  if (hour < 11) return 'Guten Morgen,';
+  if (hour < 18) return 'Guten Tag,';
+  return 'Guten Abend,';
 }
 
 export default function HomeScreen() {
-  const { activeChild, temperatures, medications, nightAlarmActive } = useStore();
+  const {
+    activeChild,
+    temperatures,
+    nightAlarmActive,
+    storageError,
+    syncStatus,
+  } = useStore();
+  const connected = useConnectivity();
+  const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
+  const desktop = width >= 768;
+  const scrollRef = useRef<ScrollView>(null);
   const [todayKey, setTodayKey] = useState(() => dateKey(new Date()));
-  const [weekOffset, setWeekOffset] = useState(0);
-  const weekDays = useMemo(() => getWeek(weekOffset, new Date(`${todayKey}T12:00:00`)), [todayKey, weekOffset]);
   const [selectedDateKey, setSelectedDateKey] = useState(todayKey);
+  const [remindersY, setRemindersY] = useState(0);
+  const [captureMenuOpen, setCaptureMenuOpen] = useState(false);
+  const weekDays = useMemo(() => getCurrentWeek(new Date(`${todayKey}T12:00:00`)), [todayKey]);
+
   useEffect(() => {
     const interval = setInterval(() => setTodayKey(dateKey(new Date())), 60_000);
     return () => clearInterval(interval);
   }, []);
+
   const selectedDate = weekDays.find((day) => dateKey(day) === selectedDateKey) ?? weekDays[0] ?? new Date();
-  const selectedIsToday = selectedDateKey === dateKey(new Date());
-  const selectedIsFuture = selectedDateKey > dateKey(new Date());
-  const canDocumentSelectedDate = !selectedIsFuture;
-  const selectedDateLabel = formatSelectedDate(selectedDate);
+  const selectedIsToday = selectedDateKey === todayKey;
+  const selectedIsFuture = selectedDateKey > todayKey;
   const temperatureEntryRoute = `/modal?kind=temperature&date=${selectedDateKey}` as const;
   const medicationEntryRoute = `/modal?kind=medication&date=${selectedDateKey}` as const;
+  const latestMeasurement = temperatures
+    .filter((item) => item.childId === activeChild?.id && dateKey(item.recordedAt) === selectedDateKey)
+    .sort((a, b) => a.recordedAt.localeCompare(b.recordedAt))
+    .at(-1);
+  const guidance = latestMeasurement ? getTemperatureGuidance(latestMeasurement.temperature, activeChild?.birthDate) : undefined;
 
-  function changeWeek(offset: -1 | 1) {
-    const nextOffset = weekOffset + offset;
-    if (nextOffset > 0) return;
-    const nextSelectedDate = new Date(selectedDate);
-    nextSelectedDate.setDate(nextSelectedDate.getDate() + offset * 7);
-    setWeekOffset(nextOffset);
-    setSelectedDateKey(dateKey(nextSelectedDate));
+  function openCapture(path: string) {
+    setCaptureMenuOpen(false);
+    router.push(path as never);
   }
 
-  const childTemperatures = temperatures
-    .filter((item) => item.childId === activeChild?.id)
-    .sort((a, b) => a.recordedAt.localeCompare(b.recordedAt));
-  const childMedications = medications
-    .filter((item) => item.childId === activeChild?.id)
-    .sort((a, b) => a.recordedAt.localeCompare(b.recordedAt));
-  const selectedTemperatures = childTemperatures.filter((item) => dateKey(item.recordedAt) === selectedDateKey);
-  const selectedLatest = selectedTemperatures.at(-1);
-  const latestGuidance = selectedLatest ? getTemperatureGuidance(selectedLatest.temperature, activeChild?.birthDate) : undefined;
-  const allEntries: DayEntry[] = [
-    ...childTemperatures.map((item) => ({
-      type: 'temp' as const,
-      id: item.id,
-      at: item.recordedAt,
-      label: `${item.temperature.toFixed(1).replace('.', ',')} °C`,
-      detail: `Temperatur · ${item.method}${item.note ? ` · ${item.note}` : ''}`,
-      color: getTemperatureGuidance(item.temperature, activeChild?.birthDate).color,
-    })),
-    ...childMedications.map((item) => ({
-      type: 'med' as const,
-      id: item.id,
-      at: item.recordedAt,
-      label: item.name,
-      detail: item.amount || 'Gabe dokumentiert',
-      color: Design.colors.peachStrong,
-    })),
-  ].sort((a, b) => a.at.localeCompare(b.at));
-  const selectedEntries = allEntries.filter((entry) => dateKey(entry.at) === selectedDateKey);
-  const timelineGroups = groupEntries(selectedEntries);
-  const daysWithEntries = new Set(allEntries.map((entry) => dateKey(entry.at)));
-
-  const avatar = activeChild ? (
-    <Pressable accessibilityLabel="Kinderprofil öffnen" style={styles.avatar} onPress={() => router.push('/familie')}>
-      <ChildAvatar child={activeChild} size={47} />
-      <View style={styles.avatarDot} />
-    </Pressable>
-  ) : undefined;
+  function showReminders() {
+    scrollRef.current?.scrollTo({ y: Math.max(0, remindersY - 20), animated: true });
+  }
 
   return (
-    <AppShell eyebrow={formatHeaderDate(selectedDate)} title={formatSelectedTitle(selectedDate)} action={avatar}>
-      {!activeChild ? <EmptyChild /> : (
-        <>
-          <View style={styles.weekSection}>
-            <View style={styles.sectionTopline}>
-              <View>
-                <Text style={styles.sectionKicker}>{weekOffset === 0 ? 'Diese Woche' : 'Vergangene Woche'}</Text>
-                <Text style={styles.weekHint}>{formatWeekRange(weekDays)}</Text>
-              </View>
-              <View style={styles.weekHeaderActions}>
-                <Pressable accessibilityRole="button" accessibilityLabel="Eine Woche zurück" onPress={() => changeWeek(-1)} style={({ pressed }) => [styles.weekNavButton, pressed && styles.weekNavButtonPressed]}>
-                  <IconSymbol name="chevron.left" size={18} color={Design.colors.primaryDark} />
-                </Pressable>
-                <Pressable accessibilityRole="button" accessibilityLabel="Eine Woche vor" accessibilityState={{ disabled: weekOffset === 0 }} disabled={weekOffset === 0} onPress={() => changeWeek(1)} style={({ pressed }) => [styles.weekNavButton, weekOffset === 0 && styles.weekNavButtonDisabled, pressed && styles.weekNavButtonPressed]}>
-                  <IconSymbol name="chevron.right" size={18} color={Design.colors.primaryDark} />
-                </Pressable>
-                <InfoButton title="Wochenübersicht" text="Blättere zu vergangenen Wochen und wähle einen Tag aus. Dort kannst du Messungen und Medikamentengaben ansehen oder nachtragen." />
-              </View>
+    <SafeAreaView style={styles.safe} edges={['top']}>
+      <View style={styles.topBar}>
+        <View style={[styles.topBarInner, { paddingHorizontal: desktop ? DASHBOARD.spacing.desktop : DASHBOARD.spacing.mobile }]}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Kinderprofil öffnen" onPress={() => router.push('/familie')} style={styles.identity}>
+            <View style={styles.avatarRing}>
+              {activeChild ? <ChildAvatar child={activeChild} size={40} /> : <MaterialIcons name="person" size={24} color={DASHBOARD.colors.primary} />}
             </View>
-            <View style={styles.weekRow}>
-              {weekDays.map((day, index) => {
-                const key = dateKey(day);
-                const selected = key === selectedDateKey;
-                const today = key === dateKey(new Date());
-                const hasEntries = daysWithEntries.has(key);
-                return (
-                  <Pressable
-                    key={key}
-                    accessibilityLabel={`${WEEKDAY_LABELS[index]}, ${day.getDate()}. auswählen`}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected }}
-                    onPress={() => setSelectedDateKey(key)}
-                    style={styles.dayButton}>
-                    <Text style={[styles.dayName, selected && styles.dayNameSelected]}>{WEEKDAY_LABELS[index]}</Text>
-                    <View style={[styles.dayCircle, today && !selected && styles.dayCircleToday, selected && styles.dayCircleSelected]}>
-                      <Text style={[styles.dayNumber, selected && styles.dayNumberSelected]}>{day.getDate()}</Text>
-                    </View>
-                    <View style={[styles.dayDot, hasEntries && styles.dayDotFilled, selected && hasEntries && styles.dayDotSelected]} />
-                  </Pressable>
-                );
-              })}
+            <View>
+              <Text style={styles.greeting}>{greeting()}</Text>
+              <Text style={styles.identityTitle} numberOfLines={1}>{activeChild ? `${activeChild.name} & Familie` : 'Deine Familie'}</Text>
             </View>
-          </View>
+          </Pressable>
+          <Pressable accessibilityRole="button" accessibilityLabel="Aktive Erinnerungen anzeigen" onPress={showReminders} style={({ pressed }) => [styles.notificationButton, pressed && styles.pressed]}>
+            <MaterialIcons name="notifications-none" size={24} color={DASHBOARD.colors.primary} />
+          </Pressable>
+        </View>
+      </View>
 
-          <View style={styles.measurementCard}>
-            <View style={styles.measurementCopy}>
-              <View style={styles.measurementHeading}>
-                <View style={[styles.measurementIcon, latestGuidance && { backgroundColor: `${latestGuidance.color}20` }]}>
-                  <IconSymbol name="thermometer.medium" size={19} color={latestGuidance?.color ?? Design.colors.primary} />
-                </View>
-                <View>
-                  <Text style={styles.measurementEyebrow}>{selectedIsToday ? 'Letzte Messung heute' : 'Letzte Messung'}</Text>
-                  <Text style={[styles.measurementValue, latestGuidance && { color: latestGuidance.color }]}>
-                    {selectedLatest ? `${selectedLatest.temperature.toFixed(1).replace('.', ',')} °C` : 'Keine Messung'}
-                  </Text>
-                </View>
-              </View>
-              <Text style={styles.measurementMeta}>
-                {selectedLatest ? `${latestGuidance?.label} · ${selectedLatest.method} · ${formatTime(selectedLatest.recordedAt)} Uhr` : `Für ${activeChild.name} wurde an diesem Tag nichts gemessen.`}
-              </Text>
-            </View>
-            {canDocumentSelectedDate ? (
-              <Pressable
-                accessibilityLabel={selectedIsToday ? 'Neue Temperaturmessung' : `Temperaturmessung für den ${selectedDateLabel} nachtragen`}
-                onPress={() => router.push(temperatureEntryRoute)}
-                style={styles.measurementAdd}>
-                <IconSymbol name="plus" size={24} color="#FFFFFF" />
-              </Pressable>
-            ) : null}
+      <ScrollView
+        ref={scrollRef}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={[
+          styles.content,
+          {
+            paddingHorizontal: desktop ? DASHBOARD.spacing.desktop : DASHBOARD.spacing.mobile,
+            paddingBottom: 128 + insets.bottom,
+          },
+        ]}>
+        {storageError || syncStatus === 'error' ? (
+          <View accessibilityLiveRegion="polite" style={styles.errorBanner}>
+            <Text style={styles.errorTitle}>{storageError ? 'Speicherung unterbrochen' : 'Synchronisierung pausiert'}</Text>
+            <Text style={styles.errorText}>{storageError ?? 'Die lokalen Daten bleiben erhalten und werden später erneut synchronisiert.'}</Text>
           </View>
+        ) : null}
+        {connected === false ? (
+          <View accessibilityLiveRegion="polite" style={styles.offlineBanner}>
+            <Text style={styles.offlineTitle}>Offline-Modus</Text>
+            <Text style={styles.offlineText}>Du kannst weiter dokumentieren. Die Synchronisierung wird später fortgesetzt.</Text>
+          </View>
+        ) : null}
 
-          {canDocumentSelectedDate ? (
-            <View style={styles.quickSection}>
-              <View style={styles.sectionTopline}>
-                <View>
-                  <Text style={styles.sectionTitle}>{selectedIsToday ? 'Schnell eintragen' : 'Für diesen Tag nachtragen'}</Text>
-                  {!selectedIsToday ? <Text style={styles.backdateHint}>Datum wird auf {selectedDateLabel} voreingestellt</Text> : null}
-                </View>
-                <InfoButton
-                  title={selectedIsToday ? 'Schnell eintragen' : 'Rückwirkend dokumentieren'}
-                  text={selectedIsToday
-                    ? 'Dokumentiere eine Messung oder Medikamentengabe. Unter Nacht kannst du deinen individuellen Nachtalarm verwalten.'
-                    : 'Trage Messungen und Medikamentengaben für diesen vergangenen Tag nach. Datum und Uhrzeit lassen sich im Formular noch anpassen; bestehende Erinnerungen bleiben unverändert.'}
-                />
+        {!activeChild ? <EmptyChild /> : (
+          <>
+            <View style={styles.calendarSection}>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.pageTitle}>{selectedIsToday ? 'Heute' : formatSelectedDate(selectedDate)}</Text>
+                <Text style={styles.monthLabel}>{formatMonth(selectedDate)}</Text>
               </View>
-              <View style={styles.quickActions}>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={selectedIsToday ? 'Temperaturmessung eintragen' : `Temperaturmessung für den ${selectedDateLabel} nachtragen`}
-                  style={[styles.quickAction, styles.quickActionPrimary]}
-                  onPress={() => router.push(temperatureEntryRoute)}>
-                  <View style={[styles.quickIcon, { backgroundColor: Design.colors.lavender }]}><IconSymbol name="thermometer.medium" size={20} color={Design.colors.primaryDark} /></View>
-                  <View style={styles.quickPrimaryCopy}>
-                    <Text style={styles.quickPrimaryLabel}>{selectedIsToday ? 'Temperatur messen' : 'Temperatur nachtragen'}</Text>
-                    <Text style={styles.quickPrimaryMeta}>{selectedIsToday ? 'Regler öffnen und Messung dokumentieren' : `${selectedDateLabel} · Uhrzeit im Formular wählen`}</Text>
-                  </View>
-                  <IconSymbol name="chevron.right" size={20} color={Design.colors.primaryDark} />
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.calendarStrip}>
+                {weekDays.map((day, index) => {
+                  const key = dateKey(day);
+                  const selected = key === selectedDateKey;
+                  return (
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={`${WEEKDAY_LABELS[index]}, ${formatSelectedDate(day)} auswählen`}
+                      accessibilityState={{ selected, disabled: key > todayKey }}
+                      disabled={key > todayKey}
+                      key={key}
+                      onPress={() => setSelectedDateKey(key)}
+                      style={({ pressed }) => [styles.calendarDay, selected && styles.calendarDayActive, key > todayKey && styles.calendarDayDisabled, pressed && styles.pressed]}>
+                      <Text style={[styles.calendarWeekday, selected && styles.calendarTextActive]}>{WEEKDAY_LABELS[index]}</Text>
+                      <Text style={[styles.calendarNumber, selected && styles.calendarTextActive]}>{day.getDate()}</Text>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+            </View>
+
+            <View style={[styles.measurementCard, desktop && styles.measurementCardDesktop]}>
+              <View style={styles.measurementMain}>
+                <View style={styles.measurementIcon}>
+                  <MaterialIcons name="device-thermostat" size={36} color={DASHBOARD.colors.onSecondaryContainer} />
+                </View>
+                <View style={styles.measurementCopy}>
+                  <Text style={styles.measurementLabel}>LETZTE MESSUNG</Text>
+                  {latestMeasurement ? (
+                    <>
+                      <View style={styles.measurementValueRow}>
+                        <Text style={styles.measurementValue}>{latestMeasurement.temperature.toFixed(1).replace('.', ',')}</Text>
+                        <Text style={styles.measurementUnit}>°C</Text>
+                        <View style={styles.statusPill}><Text style={styles.statusText}>{guidance?.label ?? 'Dokumentiert'}</Text></View>
+                      </View>
+                      <Text style={styles.measurementMeta}>{formatMeasurementTime(latestMeasurement.recordedAt, selectedIsToday)}</Text>
+                    </>
+                  ) : (
+                    <>
+                      <Text style={styles.emptyMeasurement}>Noch keine Messung</Text>
+                      <Text style={styles.measurementMeta}>{selectedIsToday ? 'Heute wurde noch kein Wert erfasst.' : 'Für diesen Tag ist kein Wert gespeichert.'}</Text>
+                    </>
+                  )}
+                </View>
+              </View>
+              {!selectedIsFuture ? (
+                <Pressable accessibilityRole="button" accessibilityLabel="Fieber messen" onPress={() => router.push(temperatureEntryRoute)} style={({ pressed }) => [styles.measureButton, desktop && styles.measureButtonDesktop, pressed && styles.pressed]}>
+                  <MaterialIcons name="add" size={20} color={DASHBOARD.colors.onPrimary} />
+                  <Text style={styles.measureButtonText}>{selectedIsToday ? 'Fieber messen' : 'Messung nachtragen'}</Text>
                 </Pressable>
-                <View style={styles.quickSecondaryRow}>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={selectedIsToday ? 'Medikamentengabe eintragen' : `Medikamentengabe für den ${selectedDateLabel} nachtragen`}
-                    style={styles.quickAction}
-                    onPress={() => router.push(medicationEntryRoute)}>
-                    <View style={[styles.quickIcon, { backgroundColor: Design.colors.peach }]}><IconSymbol name="pills.fill" size={20} color={Design.colors.peachStrong} /></View>
-                    <Text style={styles.quickLabel}>{selectedIsToday ? 'Medikament' : 'Medikament nachtragen'}</Text>
+              ) : null}
+            </View>
+
+            {!selectedIsFuture ? (
+              <View style={styles.quickSection}>
+                <Text style={styles.sectionTitle}>{selectedIsToday ? 'Schnell eintragen' : 'Für diesen Tag nachtragen'}</Text>
+                <View style={styles.quickGrid}>
+                  <Pressable accessibilityRole="button" accessibilityLabel="Temperatur eintragen" onPress={() => router.push(temperatureEntryRoute)} style={({ pressed }) => [styles.quickTile, styles.quickTileHalf, pressed && styles.pressed]}>
+                    <View style={[styles.quickIcon, { backgroundColor: DASHBOARD.colors.primarySoft }]}><MaterialIcons name="device-thermostat" size={24} color={DASHBOARD.colors.primary} /></View>
+                    <Text style={styles.quickLabel}>Temperatur</Text>
                   </Pressable>
-                  {selectedIsToday ? <Pressable accessibilityRole="button" accessibilityLabel="Arzttermin planen" style={styles.quickAction} onPress={() => router.push('/termine')}>
-                    <View style={[styles.quickIcon, { backgroundColor: Design.colors.yellow }]}><IconSymbol name="calendar" size={20} color={Design.colors.gold} /></View>
+                  <Pressable accessibilityRole="button" accessibilityLabel="Medikament eintragen" onPress={() => router.push(medicationEntryRoute)} style={({ pressed }) => [styles.quickTile, styles.quickTileHalf, pressed && styles.pressed]}>
+                    <View style={[styles.quickIcon, { backgroundColor: DASHBOARD.colors.secondarySoft }]}><MaterialIcons name="medical-services" size={24} color={DASHBOARD.colors.secondary} /></View>
+                    <Text style={styles.quickLabel}>Medikament</Text>
+                  </Pressable>
+                  <Pressable accessibilityRole="button" accessibilityLabel="Arzttermin planen" onPress={() => router.push('/termine')} style={({ pressed }) => [styles.quickTile, styles.quickTileWide, pressed && styles.pressed]}>
+                    <View style={[styles.quickIcon, { backgroundColor: DASHBOARD.colors.secondaryContainerSoft }]}><MaterialIcons name="calendar-today" size={24} color={DASHBOARD.colors.secondary} /></View>
                     <Text style={styles.quickLabel}>Arzttermin</Text>
-                  </Pressable> : null}
+                  </Pressable>
                 </View>
-                {selectedIsToday ? <Pressable accessibilityRole="button" accessibilityLabel={nightAlarmActive ? 'Aktiven Nachtalarm verwalten' : 'Nachtalarm einrichten'} accessibilityState={{ selected: nightAlarmActive }} style={[styles.nightQuickAction, nightAlarmActive && styles.quickActionActive]} onPress={() => router.push('/modal?kind=night')}>
-                  <View style={[styles.quickIcon, { backgroundColor: Design.colors.sage }]}><IconSymbol name="moon.stars.fill" size={20} color={Design.colors.sageStrong} /></View>
-                  <View style={styles.quickPrimaryCopy}><Text style={[styles.quickPrimaryLabel, nightAlarmActive && styles.quickLabelActive]}>{nightAlarmActive ? 'Nachtalarm aktiv' : 'Nachtalarm'}</Text><Text style={styles.quickPrimaryMeta}>{nightAlarmActive ? 'Zeitplan ansehen oder ändern' : 'Intervall oder einzelne Uhrzeiten festlegen'}</Text></View>
-                  <IconSymbol name="chevron.right" size={19} color={Design.colors.inkFaint} />
-                </Pressable> : null}
               </View>
-            </View>
-          ) : null}
+            ) : null}
 
-          {selectedIsToday ? <ReminderCenter /> : null}
+            {selectedIsToday ? (
+              <View onLayout={(event) => setRemindersY(event.nativeEvent.layout.y)}>
+                <ReminderCenter appearance="dashboard" />
+              </View>
+            ) : null}
 
-          <View style={styles.timelineHeader}>
-            <View><Text style={styles.sectionTitle}>Tagesverlauf</Text><Text style={styles.timelineSubtitle}>{selectedEntries.length} {selectedEntries.length === 1 ? 'Eintrag' : 'Einträge'} für {activeChild.name}</Text></View>
-            <View style={styles.timelineHeaderActions}>
-              <Pressable accessibilityRole="button" accessibilityLabel="Alle Verlaufseinträge ansehen" onPress={() => router.push('/verlauf')} style={styles.linkButton}><Text style={styles.link}>Alle ansehen</Text></Pressable>
-              <InfoButton title="Tagesverlauf" text="Messungen und Medikamentengaben werden nach ihrer Uhrzeit gruppiert. Der Haken zeigt, dass der Eintrag dokumentiert wurde." />
-            </View>
-          </View>
+            <ImageBackground source={require('../../docs/stitch/gentle-child-health-tracker/assets/stitch-asset-03.jpg')} imageStyle={styles.motivationImage} style={styles.motivationCard}>
+              <LinearGradient colors={[DASHBOARD.colors.overlay, DASHBOARD.colors.overlayTransparent]} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={styles.motivationOverlay} />
+              <View style={styles.motivationCopy}>
+                <Text style={styles.motivationTitle}>Du machst das toll!</Text>
+                <Text style={styles.motivationText}>Kleine Schritte geben Sicherheit im Familienalltag.</Text>
+              </View>
+            </ImageBackground>
+          </>
+        )}
+      </ScrollView>
 
-          {timelineGroups.length === 0 ? (
-            <View style={styles.emptyTimeline}>
-              <View style={styles.emptyIcon}><IconSymbol name="checkmark" size={20} color={Design.colors.primary} /></View>
-              <Text style={styles.emptyTitle}>Noch keine Einträge</Text>
-              <Text style={styles.emptyText}>
-                {selectedIsToday
-                  ? 'Neue Messungen und Gaben erscheinen hier automatisch nach Uhrzeit.'
-                  : selectedIsFuture
-                    ? 'Für zukünftige Tage können noch keine Einträge dokumentiert werden.'
-                    : 'Für diesen Tag wurden noch keine Messungen oder Gaben gespeichert. Du kannst sie oben nachtragen.'}
-              </Text>
-            </View>
-          ) : (
-            <View style={styles.timeline}>
-              {timelineGroups.map((group, groupIndex) => (
-                <View key={`${group.time}-${groupIndex}`} style={styles.timeGroup}>
-                  <View style={styles.timeHeader}>
-                    <Text style={styles.groupTime}>{group.time}</Text>
-                    <View style={styles.timeLine} />
-                    <View style={styles.childTag}><ChildAvatar child={activeChild} size={20} /><Text style={styles.childTagText}>{activeChild.name}</Text></View>
-                  </View>
-                  <View style={styles.eventCard}>
-                    {group.entries.map((item, index) => (
-                      <Pressable accessibilityRole="button" accessibilityLabel={`${item.label}, ${item.detail}, bearbeiten`} onPress={() => router.push(`/modal?kind=${item.type === 'med' ? 'medication' : 'temperature'}&entryId=${item.id}`)} key={`${item.type}-${item.id}`} style={({ pressed }) => [styles.eventRow, index < group.entries.length - 1 && styles.eventRowDivider, pressed && styles.eventRowPressed]}>
-                        <View style={[styles.eventIcon, { backgroundColor: `${item.color}1A` }]}>
-                          <IconSymbol name={item.type === 'med' ? 'pills.fill' : 'thermometer.medium'} size={19} color={item.color} />
-                        </View>
-                        <View style={styles.eventCopy}><Text style={styles.eventLabel}>{item.label}</Text><Text style={styles.eventDetail}>{item.detail}</Text></View>
-                        <View style={styles.rowChevron}><IconSymbol name="chevron.right" size={18} color={Design.colors.inkFaint} /></View>
-                      </Pressable>
-                    ))}
-                  </View>
-                </View>
-              ))}
-            </View>
-          )}
+      {activeChild ? (
+        <Pressable accessibilityRole="button" accessibilityLabel="Schnell erfassen" onPress={() => setCaptureMenuOpen(true)} style={({ pressed }) => [styles.fab, { bottom: 96 + insets.bottom }, pressed && styles.pressed]}>
+          <MaterialIcons name="add" size={30} color={DASHBOARD.colors.onPrimary} />
+        </Pressable>
+      ) : null}
 
-          {selectedIsToday && nightAlarmActive ? (
-            <Pressable style={styles.nightDivider} onPress={() => router.push('/modal?kind=night')}>
-              <View style={styles.nightLine} />
-              <View style={styles.nightLabel}><IconSymbol name="moon.stars.fill" size={17} color="#4F8373" /><Text style={styles.nightLabelText}>Nachtalarm aktiv</Text></View>
-              <View style={styles.nightLine} />
-            </Pressable>
-          ) : null}
-
-          <ImageBackground source={require('../../docs/stitch/gentle-child-health-tracker/assets/stitch-asset-03.jpg')} imageStyle={styles.careImage} style={styles.careNote}>
-            <View style={styles.careOverlay} />
-            <View style={styles.careCopy}><Text style={styles.careTitle}>Du kennst dein Kind am besten</Text><Text style={styles.careText}>Bei Unsicherheit oder deutlicher Veränderung bitte ärztlichen Rat einholen.</Text></View>
-          </ImageBackground>
-        </>
-      )}
-    </AppShell>
+      <AppDialog visible={captureMenuOpen} title="Schnell erfassen" subtitle={`Was möchtest du für ${activeChild?.name ?? 'dein Kind'} dokumentieren?`} onClose={() => setCaptureMenuOpen(false)}>
+        <View style={styles.captureMenu}>
+          <Pressable accessibilityRole="button" onPress={() => openCapture('/modal?kind=temperature')} style={styles.captureAction}><View style={styles.captureIcon}><MaterialIcons name="device-thermostat" size={24} color={DASHBOARD.colors.primary} /></View><View style={styles.captureCopy}><Text style={styles.captureTitle}>Temperatur</Text><Text style={styles.captureMeta}>Messung mit dem Regler erfassen</Text></View><MaterialIcons name="chevron-right" size={22} color={DASHBOARD.colors.outline} /></Pressable>
+          <Pressable accessibilityRole="button" onPress={() => openCapture('/modal?kind=medication')} style={styles.captureAction}><View style={styles.captureIcon}><MaterialIcons name="medical-services" size={24} color={DASHBOARD.colors.secondary} /></View><View style={styles.captureCopy}><Text style={styles.captureTitle}>Medikament</Text><Text style={styles.captureMeta}>Gabe aus dem Inventar dokumentieren</Text></View><MaterialIcons name="chevron-right" size={22} color={DASHBOARD.colors.outline} /></Pressable>
+          <Pressable accessibilityRole="button" accessibilityState={{ selected: nightAlarmActive }} onPress={() => openCapture('/modal?kind=night')} style={styles.captureAction}><View style={styles.captureIcon}><MaterialIcons name="bedtime" size={24} color={DASHBOARD.colors.primary} /></View><View style={styles.captureCopy}><Text style={styles.captureTitle}>{nightAlarmActive ? 'Nachtalarm aktiv' : 'Nachtalarm'}</Text><Text style={styles.captureMeta}>Intervall oder einzelne Uhrzeiten verwalten</Text></View><MaterialIcons name="chevron-right" size={22} color={DASHBOARD.colors.outline} /></Pressable>
+        </View>
+      </AppDialog>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  avatar: { width: 50, height: 50, borderRadius: 20, backgroundColor: Design.colors.yellow, alignItems: 'center', justifyContent: 'center', borderWidth: 3, borderColor: Design.colors.surface, ...Design.shadow.card },
-  avatarDot: { position: 'absolute', width: 12, height: 12, borderRadius: 6, backgroundColor: Design.colors.sageStrong, borderWidth: 2, borderColor: Design.colors.surface, right: -1, bottom: -1 },
-  sectionTopline: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
-  sectionKicker: { color: Design.colors.ink, fontSize: 16, lineHeight: 21, fontFamily: Design.fonts.bold, letterSpacing: -0.2 },
-  weekHint: { color: Design.colors.inkSoft, fontSize: 12, lineHeight: 17, fontFamily: Design.fonts.regular, marginTop: 2 },
-  weekHeaderActions: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  weekNavButton: { width: 44, height: 44, borderRadius: 15, backgroundColor: Design.colors.primarySoft, alignItems: 'center', justifyContent: 'center' },
-  weekNavButtonPressed: { opacity: 0.7, transform: [{ scale: 0.97 }] },
-  weekNavButtonDisabled: { opacity: 0.32 },
-  weekSection: { paddingHorizontal: 2, gap: 13 },
-  weekRow: { flexDirection: 'row', justifyContent: 'space-between' },
-  dayButton: { width: 40, minHeight: 65, alignItems: 'center', justifyContent: 'center', gap: 5 },
-  dayName: { color: Design.colors.inkSoft, fontSize: 11, lineHeight: 15, fontFamily: Design.fonts.semiBold },
-  dayNameSelected: { color: Design.colors.primaryDark },
-  dayCircle: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'transparent' },
-  dayCircleToday: { borderColor: Design.colors.primary },
-  dayCircleSelected: { backgroundColor: Design.colors.primary, borderColor: Design.colors.primary },
-  dayNumber: { color: Design.colors.ink, fontSize: 14, lineHeight: 19, fontFamily: Design.fonts.bold },
-  dayNumberSelected: { color: '#FFFFFF' },
-  dayDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: 'transparent' },
-  dayDotFilled: { backgroundColor: Design.colors.peachStrong },
-  dayDotSelected: { backgroundColor: Design.colors.primarySoft },
-  measurementCard: { minHeight: 128, borderRadius: Design.radius.hero, padding: 20, backgroundColor: Design.colors.surface, flexDirection: 'row', alignItems: 'center', gap: 16, borderWidth: 1, borderColor: Design.colors.border, ...Design.shadow.card },
-  measurementCopy: { flex: 1, gap: 9 },
-  measurementHeading: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  measurementIcon: { width: 58, height: 58, borderRadius: 20, backgroundColor: Design.colors.primarySoft, alignItems: 'center', justifyContent: 'center' },
-  measurementEyebrow: { color: Design.colors.primaryDark, fontSize: 12, lineHeight: 16, fontFamily: Design.fonts.semiBold },
-  measurementValue: { color: Design.colors.ink, fontSize: 30, lineHeight: 35, fontFamily: Design.fonts.bold, letterSpacing: -0.9 },
-  measurementMeta: { color: Design.colors.inkSoft, fontSize: 12, lineHeight: 18, fontFamily: Design.fonts.regular },
-  measurementAdd: { width: 52, height: 52, borderRadius: 18, backgroundColor: Design.colors.primary, alignItems: 'center', justifyContent: 'center', ...Design.shadow.floating },
-  quickSection: { gap: 12 },
-  sectionTitle: { color: Design.colors.ink, ...Design.type.section, fontFamily: Design.fonts.bold },
-  backdateHint: { color: Design.colors.inkSoft, fontSize: 12, lineHeight: 17, fontFamily: Design.fonts.regular, marginTop: 2 },
-  quickActions: { gap: 12 },
-  quickAction: { flex: 1, minHeight: 104, borderRadius: Design.radius.large, backgroundColor: Design.colors.surface, alignItems: 'flex-start', justifyContent: 'space-between', padding: 14, gap: 8, borderWidth: 1, borderColor: Design.colors.border, ...Design.shadow.card },
-  quickActionPrimary: { minHeight: 88, flex: 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-start', backgroundColor: Design.colors.primarySoft, borderColor: 'transparent', paddingHorizontal: 17, ...Design.shadow.card },
-  quickPrimaryCopy: { flex: 1, gap: 2 },
-  quickPrimaryLabel: { color: Design.colors.ink, fontSize: 14, lineHeight: 19, fontFamily: Design.fonts.bold },
-  quickPrimaryMeta: { color: Design.colors.inkSoft, fontSize: 12, lineHeight: 17, fontFamily: Design.fonts.regular },
-  quickSecondaryRow: { flexDirection: 'row', gap: 10 },
-  quickActionActive: { backgroundColor: Design.colors.sage, borderColor: Design.colors.borderStrong },
-  nightQuickAction: { minHeight: 70, borderRadius: Design.radius.large, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', gap: 11, backgroundColor: Design.colors.surface, borderWidth: 1, borderColor: Design.colors.border },
-  quickIcon: { width: 40, height: 40, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
-  quickLabel: { color: Design.colors.ink, fontSize: 12, lineHeight: 17, fontFamily: Design.fonts.bold },
-  quickLabelActive: { color: Design.colors.sageStrong },
-  timelineHeader: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 10 },
-  timelineSubtitle: { color: Design.colors.inkSoft, fontSize: 12, lineHeight: 17, fontFamily: Design.fonts.regular, marginTop: 2 },
-  timelineHeaderActions: { flexDirection: 'row', alignItems: 'center', gap: 9 },
-  link: { color: Design.colors.primaryDark, fontSize: 12, lineHeight: 17, fontFamily: Design.fonts.bold },
-  linkButton: { minHeight: 44, justifyContent: 'center' },
-  timeline: { gap: 18 },
-  timeGroup: { gap: 8 },
-  timeHeader: { minHeight: 28, flexDirection: 'row', alignItems: 'center', gap: 10 },
-  groupTime: { color: Design.colors.primaryDark, fontSize: 12, lineHeight: 17, fontFamily: Design.fonts.bold },
-  timeLine: { flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: Design.colors.border },
-  childTag: { minHeight: 30, borderRadius: 15, backgroundColor: Design.colors.primarySoft, flexDirection: 'row', alignItems: 'center', gap: 6, paddingRight: 10, paddingLeft: 4 },
-  childTagText: { color: Design.colors.primaryDark, fontSize: 11, lineHeight: 15, fontFamily: Design.fonts.semiBold },
-  eventCard: { backgroundColor: Design.colors.surface, borderRadius: Design.radius.large, paddingHorizontal: 16, borderWidth: 1, borderColor: 'rgba(72,61,77,0.045)', ...Design.shadow.card },
-  eventRow: { minHeight: 78, flexDirection: 'row', alignItems: 'center' },
-  eventRowPressed: { opacity: 0.7 },
-  eventRowDivider: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: Design.colors.border },
-  eventIcon: { width: 42, height: 42, borderRadius: 16, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
-  eventCopy: { flex: 1 },
-  eventLabel: { color: Design.colors.ink, fontSize: 15, lineHeight: 20, fontFamily: Design.fonts.bold },
-  eventDetail: { color: Design.colors.inkSoft, fontSize: 12, lineHeight: 17, fontFamily: Design.fonts.regular, marginTop: 2 },
-  rowChevron: { width: 32, height: 44, alignItems: 'flex-end', justifyContent: 'center', marginLeft: 8 },
-  emptyTimeline: { borderRadius: Design.radius.large, backgroundColor: Design.colors.surface, padding: 26, alignItems: 'center', gap: 6, borderWidth: 1, borderColor: Design.colors.border },
-  emptyIcon: { width: 46, height: 46, borderRadius: 17, backgroundColor: Design.colors.primarySoft, alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
-  emptyTitle: { color: Design.colors.ink, fontSize: 15, lineHeight: 20, fontFamily: Design.fonts.bold },
-  emptyText: { textAlign: 'center', color: Design.colors.inkSoft, fontSize: 13, lineHeight: 19, fontFamily: Design.fonts.regular },
-  nightDivider: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  nightLine: { flex: 1, height: 1, backgroundColor: Design.colors.borderStrong },
-  nightLabel: { minHeight: 40, borderRadius: 20, paddingHorizontal: 14, backgroundColor: Design.colors.sage, flexDirection: 'row', alignItems: 'center', gap: 8 },
-  nightLabelText: { color: Design.colors.sageStrong, fontSize: 12, lineHeight: 17, fontFamily: Design.fonts.bold },
-  careNote: { minHeight: 176, borderRadius: Design.radius.hero, overflow: 'hidden', justifyContent: 'center', padding: 22 },
-  careImage: { borderRadius: Design.radius.hero },
-  careOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(42,96,56,0.72)' },
-  careCopy: { maxWidth: 230, gap: 5 },
-  careTitle: { color: '#FFFFFF', fontSize: 19, lineHeight: 25, fontFamily: Design.fonts.bold },
-  careText: { color: 'rgba(255,255,255,0.86)', fontSize: 12, lineHeight: 18, fontFamily: Design.fonts.regular },
+  safe: { flex: 1, backgroundColor: DASHBOARD.colors.background },
+  topBar: { height: 64, backgroundColor: DASHBOARD.colors.translucentHeader, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: DASHBOARD.colors.borderSoft, zIndex: 5 },
+  topBarInner: { width: '100%', maxWidth: 800, height: 64, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  identity: { minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
+  avatarRing: { width: 44, height: 44, borderRadius: 22, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', backgroundColor: DASHBOARD.colors.primaryContainer, borderWidth: 2, borderColor: DASHBOARD.colors.primarySoft },
+  greeting: { color: DASHBOARD.colors.onSurfaceVariant, fontSize: 12, lineHeight: 14, letterSpacing: 0.24, fontFamily: Design.fonts.dashboardMedium },
+  identityTitle: { color: DASHBOARD.colors.primary, fontSize: 18, lineHeight: 24, fontFamily: Design.fonts.dashboardSemiBold, maxWidth: 230 },
+  notificationButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: DASHBOARD.colors.primaryContainer, alignItems: 'center', justifyContent: 'center' },
+  content: { width: '100%', maxWidth: 800, alignSelf: 'center', paddingTop: 16, gap: 32 },
+  errorBanner: { borderRadius: 12, padding: 16, backgroundColor: Design.colors.dangerSoft, gap: 4 },
+  errorTitle: { color: Design.colors.danger, fontSize: 14, lineHeight: 18, fontFamily: Design.fonts.dashboardSemiBold },
+  errorText: { color: DASHBOARD.colors.onSurfaceVariant, fontSize: 14, lineHeight: 20, fontFamily: Design.fonts.dashboardRegular },
+  offlineBanner: { borderRadius: 12, padding: 16, backgroundColor: Design.colors.yellow, gap: 4 },
+  offlineTitle: { color: Design.colors.gold, fontSize: 14, lineHeight: 18, fontFamily: Design.fonts.dashboardSemiBold },
+  offlineText: { color: DASHBOARD.colors.onSurfaceVariant, fontSize: 14, lineHeight: 20, fontFamily: Design.fonts.dashboardRegular },
+  calendarSection: { gap: 16 },
+  sectionHeader: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12 },
+  pageTitle: { color: DASHBOARD.colors.onSurface, fontSize: 24, lineHeight: 32, letterSpacing: -0.48, fontFamily: Design.fonts.dashboardBold },
+  monthLabel: { color: DASHBOARD.colors.primary, fontSize: 14, lineHeight: 16, letterSpacing: 0.14, textTransform: 'capitalize', fontFamily: Design.fonts.dashboardSemiBold },
+  calendarStrip: { gap: 12, paddingVertical: 8 },
+  calendarDay: { width: 56, height: 80, flexShrink: 0, borderRadius: 12, backgroundColor: DASHBOARD.colors.surfaceVariantSoft, alignItems: 'center', justifyContent: 'center', gap: 4 },
+  calendarDayActive: { backgroundColor: DASHBOARD.colors.primary, ...DASHBOARD.shadow.active },
+  calendarDayDisabled: { opacity: 1 },
+  calendarWeekday: { color: DASHBOARD.colors.onSurfaceVariant, fontSize: 12, lineHeight: 14, letterSpacing: 0.24, fontFamily: Design.fonts.dashboardMedium },
+  calendarNumber: { color: DASHBOARD.colors.onSurfaceVariant, fontSize: 20, lineHeight: 28, fontFamily: Design.fonts.dashboardSemiBold },
+  calendarTextActive: { color: DASHBOARD.colors.onPrimary },
+  measurementCard: { borderRadius: DASHBOARD.radius.card, padding: 24, backgroundColor: Design.colors.surface, gap: 24, ...DASHBOARD.shadow.card },
+  measurementCardDesktop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  measurementMain: { flexDirection: 'row', alignItems: 'center', gap: 24, flex: 1 },
+  measurementIcon: { width: 64, height: 64, borderRadius: 16, backgroundColor: DASHBOARD.colors.secondaryContainer, alignItems: 'center', justifyContent: 'center' },
+  measurementCopy: { flex: 1 },
+  measurementLabel: { color: DASHBOARD.colors.onSurfaceVariant, fontSize: 12, lineHeight: 14, letterSpacing: 1, fontFamily: Design.fonts.dashboardSemiBold },
+  measurementValueRow: { flexDirection: 'row', alignItems: 'baseline', flexWrap: 'wrap', gap: 8 },
+  measurementValue: { color: DASHBOARD.colors.onSurface, fontSize: 28, lineHeight: 36, letterSpacing: -0.56, fontFamily: Design.fonts.dashboardBold },
+  measurementUnit: { color: DASHBOARD.colors.onSurfaceVariant, fontSize: 20, lineHeight: 28, fontFamily: Design.fonts.dashboardSemiBold },
+  statusPill: { borderRadius: DASHBOARD.radius.round, backgroundColor: DASHBOARD.colors.secondaryContainer, paddingHorizontal: 8, paddingVertical: 2 },
+  statusText: { color: DASHBOARD.colors.onSecondaryContainer, fontSize: 12, lineHeight: 14, fontFamily: Design.fonts.dashboardSemiBold },
+  emptyMeasurement: { color: DASHBOARD.colors.onSurface, fontSize: 22, lineHeight: 30, fontFamily: Design.fonts.dashboardBold, marginTop: 2 },
+  measurementMeta: { color: DASHBOARD.colors.outline, fontSize: 14, lineHeight: 20, fontFamily: Design.fonts.dashboardRegular },
+  measureButton: { width: '100%', minHeight: 52, borderRadius: DASHBOARD.radius.round, paddingHorizontal: 24, paddingVertical: 16, backgroundColor: DASHBOARD.colors.primary, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  measureButtonDesktop: { width: undefined, alignSelf: 'center' },
+  measureButtonText: { color: DASHBOARD.colors.onPrimary, fontSize: 14, lineHeight: 16, letterSpacing: 0.14, fontFamily: Design.fonts.dashboardSemiBold },
+  quickSection: { gap: 16 },
+  sectionTitle: { color: DASHBOARD.colors.onSurface, fontSize: 24, lineHeight: 32, fontFamily: Design.fonts.dashboardBold },
+  quickGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 16 },
+  quickTile: { minHeight: 112, borderRadius: DASHBOARD.radius.card, padding: 16, backgroundColor: Design.colors.surface, alignItems: 'center', justifyContent: 'center', gap: 8, ...DASHBOARD.shadow.card },
+  quickTileHalf: { flexGrow: 1, flexBasis: '43%' },
+  quickTileWide: { flexGrow: 1, flexBasis: '100%' },
+  quickIcon: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
+  quickLabel: { color: DASHBOARD.colors.onSurface, fontSize: 14, lineHeight: 16, letterSpacing: 0.14, fontFamily: Design.fonts.dashboardSemiBold },
+  motivationCard: { height: 192, borderRadius: DASHBOARD.radius.hero, overflow: 'hidden', justifyContent: 'center', padding: 32 },
+  motivationImage: { borderRadius: DASHBOARD.radius.hero },
+  motivationOverlay: { ...StyleSheet.absoluteFillObject },
+  motivationCopy: { maxWidth: 210, gap: 8 },
+  motivationTitle: { color: DASHBOARD.colors.onPrimary, fontSize: 18, lineHeight: 24, fontFamily: Design.fonts.dashboardSemiBold },
+  motivationText: { color: DASHBOARD.colors.whiteSoft, fontSize: 14, lineHeight: 20, fontFamily: Design.fonts.dashboardRegular },
+  fab: { position: 'absolute', right: 24, width: 56, height: 56, borderRadius: 16, backgroundColor: DASHBOARD.colors.primary, alignItems: 'center', justifyContent: 'center', zIndex: 10, ...Design.shadow.floating },
+  pressed: { opacity: 0.84, transform: [{ scale: 0.96 }] },
+  captureMenu: { gap: 8 },
+  captureAction: { minHeight: 72, borderRadius: 16, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: DASHBOARD.colors.background },
+  captureIcon: { width: 44, height: 44, borderRadius: 22, backgroundColor: DASHBOARD.colors.primarySoft, alignItems: 'center', justifyContent: 'center' },
+  captureCopy: { flex: 1, gap: 2 },
+  captureTitle: { color: DASHBOARD.colors.onSurface, fontSize: 15, lineHeight: 20, fontFamily: Design.fonts.dashboardSemiBold },
+  captureMeta: { color: DASHBOARD.colors.onSurfaceVariant, fontSize: 12, lineHeight: 18, fontFamily: Design.fonts.dashboardRegular },
 });
