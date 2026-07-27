@@ -20,7 +20,7 @@ import { formatGermanDate, parseGermanDate, parseGermanDateTime } from '@/lib/da
 type Kind = 'temperature' | 'medication' | 'night';
 type NightMode = 'interval' | 'manual';
 const METHODS: TemperatureMethod[] = ['Ohr', 'Stirn', 'Mund', 'Achsel', 'Rektal'];
-const TEMPERATURE_REMINDER_PRESETS = [1, 2, 4] as const;
+const REMINDER_PRESETS = [1, 2, 4] as const;
 
 function formatAlarmTime(value: Date) {
   return new Intl.DateTimeFormat('de-DE', { hour: '2-digit', minute: '2-digit' }).format(value);
@@ -44,6 +44,11 @@ function isSameCalendarDay(first: Date, second: Date) {
   return first.getFullYear() === second.getFullYear()
     && first.getMonth() === second.getMonth()
     && first.getDate() === second.getDate();
+}
+
+function isPresetReminder(value?: number | string) {
+  const hours = typeof value === 'string' ? Number(value.replace(',', '.')) : value;
+  return REMINDER_PRESETS.includes(hours as 1 | 2 | 4);
 }
 
 export default function ModalScreen() {
@@ -88,7 +93,7 @@ export default function ModalScreen() {
   const [note, setNote] = useState(editingTemperature?.note ?? '');
   const [temperatureReminder, setTemperatureReminder] = useState(temperatureReminderHours ? String(temperatureReminderHours).replace('.', ',') : '');
   const [temperatureReminderEnabled, setTemperatureReminderEnabledLocal] = useState(storedTemperatureReminderEnabled ?? Boolean(temperatureReminderHours));
-  const [customTemperatureReminder, setCustomTemperatureReminder] = useState(Boolean(temperatureReminderHours && !TEMPERATURE_REMINDER_PRESETS.includes(temperatureReminderHours as 1 | 2 | 4)));
+  const [customTemperatureReminder, setCustomTemperatureReminder] = useState(Boolean(temperatureReminderHours && !isPresetReminder(temperatureReminderHours)));
   const [selectedInventoryId, setSelectedInventoryId] = useState<string | undefined>(editingMedication?.medicationId ?? initialInventoryItem?.id);
   const [medicationName, setMedicationName] = useState(editingMedication?.name ?? initialInventoryItem?.name ?? '');
   const [amount, setAmount] = useState(editingMedication?.amount ?? initialInventoryItem?.defaultAmount ?? '');
@@ -96,6 +101,9 @@ export default function ModalScreen() {
     ? Math.max(0, (new Date(editingMedication.reminderAt).getTime() - new Date(editingMedication.recordedAt).getTime()) / 3_600_000)
     : undefined;
   const [medicationReminder, setMedicationReminder] = useState(existingMedicationInterval ? String(Number(existingMedicationInterval.toFixed(2))).replace('.', ',') : initialInventoryItem?.defaultIntervalHours ?? '');
+  const initialMedicationReminder = existingMedicationInterval ? String(Number(existingMedicationInterval.toFixed(2))).replace('.', ',') : initialInventoryItem?.defaultIntervalHours ?? '';
+  const [medicationReminderEnabled, setMedicationReminderEnabled] = useState(Boolean(initialMedicationReminder));
+  const [customMedicationReminder, setCustomMedicationReminder] = useState(Boolean(initialMedicationReminder && !isPresetReminder(initialMedicationReminder)));
   const [recordedDate, setRecordedDate] = useState(formatGermanDate(initialRecordedDate));
   const [recordedTime, setRecordedTime] = useState(`${String(initialRecordedDate.getHours()).padStart(2, '0')}:${String(initialRecordedDate.getMinutes()).padStart(2, '0')}`);
   const [nightMode, setNightMode] = useState<NightMode>('interval');
@@ -143,7 +151,10 @@ export default function ModalScreen() {
     const item = medicationInventory.find((candidate) => candidate.id === id);
     setMedicationName(item?.name ?? '');
     setAmount(item?.defaultAmount ?? '');
-    setMedicationReminder(item?.defaultIntervalHours ?? '');
+    const interval = item?.defaultIntervalHours ?? '';
+    setMedicationReminder(interval);
+    setMedicationReminderEnabled(Boolean(interval));
+    setCustomMedicationReminder(Boolean(interval && !isPresetReminder(interval)));
   }
 
   function handleTemperatureChange(next: number) {
@@ -173,6 +184,22 @@ export default function ModalScreen() {
   function selectTemperatureReminderPreset(hours: number) {
     setTemperatureReminder(String(hours));
     setCustomTemperatureReminder(false);
+  }
+
+  function toggleMedicationReminder() {
+    setMedicationReminderEnabled((current) => {
+      const next = !current;
+      if (next && !medicationReminder.trim()) {
+        setMedicationReminder('4');
+        setCustomMedicationReminder(false);
+      }
+      return next;
+    });
+  }
+
+  function selectMedicationReminderPreset(hours: number) {
+    setMedicationReminder(String(hours));
+    setCustomMedicationReminder(false);
   }
 
   async function save() {
@@ -241,7 +268,7 @@ export default function ModalScreen() {
         if (!medicationName.trim()) nextErrors.medicationName = 'Bitte trage den Namen so ein, wie er auf der Packung steht.';
         if (!amount.trim()) nextErrors.amount = 'Bitte dokumentiere die tatsächlich verabreichte Menge inklusive Einheit.';
         const hours = Number(medicationReminder.replace(',', '.'));
-        if (medicationReminder.trim() && (!Number.isFinite(hours) || hours < 0.5 || hours > 24)) {
+        if (medicationReminderEnabled && (!medicationReminder.trim() || !Number.isFinite(hours) || hours < 0.5 || hours > 24)) {
           nextErrors.medicationReminder = 'Bitte einen Abstand zwischen 0,5 und 24 Stunden eingeben.';
         }
         const recordedAt = parseGermanDateTime(recordedDate, recordedTime);
@@ -255,7 +282,7 @@ export default function ModalScreen() {
 
         await cancelReminder(editingMedication?.reminderNotificationId);
         const backdatedEntry = !isSameCalendarDay(recordedAt!, new Date());
-        const reminderAt = Number.isFinite(hours) && hours > 0 ? new Date(recordedAt!.getTime() + hours * 60 * 60 * 1000) : undefined;
+        const reminderAt = medicationReminderEnabled && Number.isFinite(hours) && hours > 0 ? new Date(recordedAt!.getTime() + hours * 60 * 60 * 1000) : undefined;
         const scheduled = !backdatedEntry && reminderAt && reminderAt.getTime() > Date.now()
           ? await scheduleReminder(reminderAt, 'Erinnerung von Fieberwache', 'Öffne die App, um deine geplante Dokumentation zu prüfen.')
           : undefined;
@@ -400,43 +427,7 @@ export default function ModalScreen() {
                   <View style={styles.backdateCopy}><Text style={styles.backdateTitle}>Rückwirkender Eintrag</Text><Text style={styles.backdateText}>Die Messung wird diesem Tag zugeordnet. Bestehende Erinnerungen werden nicht verschoben.</Text></View>
                 </View>
               ) : null}
-              {!editingTemperature && !isBackdatedSelection ? (
-                <View style={styles.temperatureReminderSection}>
-                  <View style={styles.labelRow}>
-                    <Text style={styles.temperatureSectionTitle}>Fieber-Erinnerung</Text>
-                    <InfoButton compact title="Fieber-Erinnerung" text="Die Einstellung wird für kommende Messungen gespeichert. Sie erinnert nur an eine neue Dokumentation und ist keine medizinische Empfehlung." />
-                  </View>
-                  <View style={styles.reminderControls}>
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel={temperatureReminderEnabled ? 'Fieber-Erinnerung ausschalten' : 'Fieber-Erinnerung aktivieren'}
-                      accessibilityState={{ selected: temperatureReminderEnabled }}
-                      onPress={toggleTemperatureReminder}
-                      style={({ pressed }) => [styles.reminderToggle, temperatureReminderEnabled && styles.reminderToggleActive, pressed && styles.reminderPressed]}>
-                      <IconSymbol name={temperatureReminderEnabled ? 'bell.fill' : 'bell'} size={18} color={temperatureReminderEnabled ? '#FFFFFF' : Design.colors.primaryDark} />
-                      <Text style={[styles.reminderToggleText, temperatureReminderEnabled && styles.reminderToggleTextActive]}>{temperatureReminderEnabled ? 'Erinnerung aktiv' : 'Erinnerung aktivieren'}</Text>
-                    </Pressable>
-                    {temperatureReminderEnabled ? (
-                      <View accessibilityRole="radiogroup" style={styles.reminderOptions}>
-                        {TEMPERATURE_REMINDER_PRESETS.map((hours) => {
-                          const selected = !customTemperatureReminder && Number(temperatureReminder.replace(',', '.')) === hours;
-                          return (
-                            <Pressable accessibilityRole="radio" accessibilityState={{ checked: selected }} key={hours} onPress={() => selectTemperatureReminderPreset(hours)} style={({ pressed }) => [styles.reminderOption, selected && styles.reminderOptionActive, pressed && styles.reminderPressed]}>
-                              <Text style={[styles.reminderOptionText, selected && styles.reminderOptionTextActive]}>{hours} h</Text>
-                            </Pressable>
-                          );
-                        })}
-                        <Pressable accessibilityRole="radio" accessibilityState={{ checked: customTemperatureReminder }} onPress={() => setCustomTemperatureReminder(true)} style={({ pressed }) => [styles.reminderOption, styles.reminderOptionCustom, customTemperatureReminder && styles.reminderOptionActive, pressed && styles.reminderPressed]}>
-                          <Text style={[styles.reminderOptionText, customTemperatureReminder && styles.reminderOptionTextActive]}>Individuell</Text>
-                        </Pressable>
-                      </View>
-                    ) : null}
-                  </View>
-                  {temperatureReminderEnabled && customTemperatureReminder ? <AppInput appearance="reference" error={errors.temperatureReminder} label="Eigener Abstand" value={temperatureReminder} onChangeText={setTemperatureReminder} placeholder="z. B. 3,5" keyboardType="decimal-pad" suffix="Stunden" /> : null}
-                  {errors.temperatureReminder && !customTemperatureReminder ? <Text accessibilityLiveRegion="polite" style={styles.inlineError}>{errors.temperatureReminder}</Text> : null}
-                  <Text style={styles.reminderHelper}>{nightAlarmActiveNow ? 'Der Nachtalarm ist aktiv. Die Standard-Erinnerung bleibt gespeichert, wird für diese Messung aber pausiert.' : temperatureReminderEnabled ? `Nach jeder neuen Messung wird automatisch wieder nach ${temperatureReminder || '–'} Stunden erinnert.` : 'Es wird nach dem Speichern keine neue Fieber-Erinnerung geplant.'}</Text>
-                </View>
-              ) : null}
+              {!editingTemperature && !isBackdatedSelection ? <ReminderIntervalControl title="Fieber-Erinnerung" infoText="Die Einstellung wird für kommende Messungen gespeichert. Sie erinnert nur an eine neue Dokumentation und ist keine medizinische Empfehlung." enabled={temperatureReminderEnabled} custom={customTemperatureReminder} value={temperatureReminder} error={errors.temperatureReminder} onToggle={toggleTemperatureReminder} onPreset={selectTemperatureReminderPreset} onCustom={() => setCustomTemperatureReminder(true)} onChange={setTemperatureReminder} helper={nightAlarmActiveNow ? 'Der Nachtalarm ist aktiv. Die Standard-Erinnerung bleibt gespeichert, wird für diese Messung aber pausiert.' : temperatureReminderEnabled ? `Nach jeder neuen Messung wird automatisch wieder nach ${temperatureReminder || '–'} Stunden erinnert.` : 'Es wird nach dem Speichern keine neue Fieber-Erinnerung geplant.'} /> : null}
               <AppInput appearance="reference" label="Notiz" optional value={note} onChangeText={setNote} placeholder="Wie geht es dem Kind?" multiline />
             </View>
           ) : null}
@@ -474,7 +465,7 @@ export default function ModalScreen() {
                   <View style={styles.backdateCopy}><Text style={styles.backdateTitle}>Rückwirkender Eintrag</Text><Text style={styles.backdateText}>Die Gabe wird diesem Tag zugeordnet. Es wird keine nachträgliche Erinnerung ausgelöst.</Text></View>
                 </View>
               ) : (
-                <AppInput error={errors.medicationReminder} label="Erinnerung in Stunden" optional value={medicationReminder} onChangeText={setMedicationReminder} placeholder="Von dir festgelegtes Intervall" keyboardType="decimal-pad" suffix="Stunden" helper={`${selectedInventoryId ? 'Aus deinem Inventar übernommen und für diese Gabe anpassbar. ' : ''}Die Erinnerung bedeutet nicht, dass eine weitere Gabe medizinisch erlaubt ist.`} />
+                <ReminderIntervalControl title="Medikamenten-Erinnerung" infoText="Die Erinnerung dokumentiert nur deinen selbst gewählten Zeitpunkt. Sie prüft weder Medikament noch Menge und ist keine Freigabe für eine weitere Gabe." enabled={medicationReminderEnabled} custom={customMedicationReminder} value={medicationReminder} error={errors.medicationReminder} onToggle={toggleMedicationReminder} onPreset={selectMedicationReminderPreset} onCustom={() => setCustomMedicationReminder(true)} onChange={setMedicationReminder} helper={medicationReminderEnabled ? `${selectedInventoryId ? 'Aus deinem Inventar übernommen und für diese Gabe anpassbar. ' : ''}Erinnerung nach ${medicationReminder || '–'} Stunden. Sie bedeutet nicht, dass eine weitere Gabe medizinisch erlaubt ist.` : 'Nach dem Speichern wird keine Medikamenten-Erinnerung geplant.'} />
               )}
             </View>
           ) : null}
@@ -556,6 +547,32 @@ export default function ModalScreen() {
         )}
       </KeyboardAvoidingView>
     </SafeAreaView>
+  );
+}
+
+function ReminderIntervalControl({ title, infoText, enabled, custom, value, error, helper, onToggle, onPreset, onCustom, onChange }: { title: string; infoText: string; enabled: boolean; custom: boolean; value: string; error?: string; helper: string; onToggle: () => void; onPreset: (hours: number) => void; onCustom: () => void; onChange: (value: string) => void }) {
+  return (
+    <View style={styles.temperatureReminderSection}>
+      <View style={styles.labelRow}><Text style={styles.temperatureSectionTitle}>{title}</Text><InfoButton compact title={title} text={infoText} /></View>
+      <View style={styles.reminderControls}>
+        <Pressable accessibilityRole="button" accessibilityLabel={enabled ? `${title} ausschalten` : `${title} aktivieren`} accessibilityState={{ selected: enabled }} onPress={onToggle} style={({ pressed }) => [styles.reminderToggle, enabled && styles.reminderToggleActive, pressed && styles.reminderPressed]}>
+          <IconSymbol name={enabled ? 'bell.fill' : 'bell'} size={18} color={enabled ? '#FFFFFF' : Design.colors.primaryDark} />
+          <Text style={[styles.reminderToggleText, enabled && styles.reminderToggleTextActive]}>{enabled ? 'Erinnerung aktiv' : 'Erinnerung aktivieren'}</Text>
+        </Pressable>
+        {enabled ? (
+          <View accessibilityRole="radiogroup" style={styles.reminderOptions}>
+            {REMINDER_PRESETS.map((hours) => {
+              const selected = !custom && Number(value.replace(',', '.')) === hours;
+              return <Pressable accessibilityRole="radio" accessibilityState={{ checked: selected }} key={hours} onPress={() => onPreset(hours)} style={({ pressed }) => [styles.reminderOption, selected && styles.reminderOptionActive, pressed && styles.reminderPressed]}><Text style={[styles.reminderOptionText, selected && styles.reminderOptionTextActive]}>{hours} h</Text></Pressable>;
+            })}
+            <Pressable accessibilityRole="radio" accessibilityState={{ checked: custom }} onPress={onCustom} style={({ pressed }) => [styles.reminderOption, styles.reminderOptionCustom, custom && styles.reminderOptionActive, pressed && styles.reminderPressed]}><Text style={[styles.reminderOptionText, custom && styles.reminderOptionTextActive]}>Individuell</Text></Pressable>
+          </View>
+        ) : null}
+      </View>
+      {enabled && custom ? <AppInput appearance="reference" error={error} label="Eigener Abstand" value={value} onChangeText={onChange} placeholder="z. B. 3,5" keyboardType="decimal-pad" suffix="Stunden" /> : null}
+      {error && !custom ? <Text accessibilityLiveRegion="polite" style={styles.inlineError}>{error}</Text> : null}
+      <Text style={styles.reminderHelper}>{helper}</Text>
+    </View>
   );
 }
 
