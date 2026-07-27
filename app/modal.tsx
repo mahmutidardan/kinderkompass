@@ -1,7 +1,8 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Slider from '@react-native-community/slider';
-import { AccessibilityInfo, Animated, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { AccessibilityInfo, Animated, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Design } from '@/constants/design';
@@ -45,6 +46,7 @@ function isSameCalendarDay(first: Date, second: Date) {
 }
 
 export default function ModalScreen() {
+  const { width: windowWidth } = useWindowDimensions();
   const params = useLocalSearchParams<{ kind?: string; inventoryId?: string; entryId?: string; date?: string }>();
   const store = useStore();
   const editingTemperature = store.temperatures.find((item) => item.id === params.entryId);
@@ -116,9 +118,10 @@ export default function ModalScreen() {
   );
   const nightAlarmActiveNow = Boolean(nightAlarmActiveUntil && new Date(nightAlarmActiveUntil).getTime() > Date.now());
   const temperatureGuidance = getTemperatureGuidance(temperatureValue, activeChild?.birthDate);
+  const temperatureToneColor = temperatureGuidance.status === 'highFever' ? Design.colors.referenceError : temperatureGuidance.color;
   const temperatureBackground = temperatureAnimation.interpolate({
     inputRange: [34, 35, 36.5, 37.6, temperatureGuidance.feverFrom, 39, 43],
-    outputRange: [Design.colors.temperatureLowStrong, Design.colors.temperatureLow, Design.colors.temperatureNormal, Design.colors.temperatureElevated, Design.colors.temperatureFever, Design.colors.temperatureFeverStrong, Design.colors.temperatureFeverStrong],
+    outputRange: [Design.colors.temperatureLowStrong, Design.colors.temperatureLow, Design.colors.temperatureNormal, Design.colors.temperatureElevated, Design.colors.temperatureFever, Design.colors.referenceErrorContainerSoft, Design.colors.referenceErrorContainerSoft],
   });
   const nightPreview = useMemo(() => nightMode === 'interval'
     ? buildIntervalSchedule(nightStart, nightEnd, nightInterval)
@@ -303,14 +306,24 @@ export default function ModalScreen() {
   return (
     <SafeAreaView style={styles.safe}>
       <KeyboardAvoidingView style={styles.safe} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <View style={styles.handle} />
-        <View style={styles.header}>
-          <Pressable accessibilityRole="button" accessibilityLabel="Eingabe schließen" onPress={() => router.back()} hitSlop={12}><Text style={styles.close}>Schließen</Text></Pressable>
-          <Text style={styles.headerTitle}>{title}</Text>
-          <View style={styles.headerSpacer} />
-        </View>
-        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-          <Text style={styles.forChild}>Für {activeChild?.name ?? 'das aktive Kinderprofil'}</Text>
+        {kind === 'temperature' ? (
+          <View style={styles.temperatureHeader}>
+            <Pressable accessibilityRole="button" accessibilityLabel="Eingabe schließen" onPress={() => router.back()} hitSlop={16} style={styles.temperatureHandle} />
+            <Text style={styles.temperatureHeaderTitle}>{title}</Text>
+            <Text style={styles.temperatureForChild}>Für {activeChild?.name ?? 'das aktive Kinderprofil'}</Text>
+          </View>
+        ) : (
+          <>
+            <View style={styles.handle} />
+            <View style={styles.header}>
+              <Pressable accessibilityRole="button" accessibilityLabel="Eingabe schließen" onPress={() => router.back()} hitSlop={12}><Text style={styles.close}>Schließen</Text></Pressable>
+              <Text style={styles.headerTitle}>{title}</Text>
+              <View style={styles.headerSpacer} />
+            </View>
+          </>
+        )}
+        <ScrollView contentContainerStyle={[styles.content, kind === 'temperature' && styles.temperatureContent]} keyboardShouldPersistTaps="handled">
+          {kind !== 'temperature' ? <Text style={styles.forChild}>Für {activeChild?.name ?? 'das aktive Kinderprofil'}</Text> : null}
           {feedback ? (
             <View accessibilityLiveRegion="polite" style={styles.successBanner}>
               <View style={styles.successIcon}><IconSymbol name="checkmark" size={18} color={Design.colors.sageStrong} /></View>
@@ -325,35 +338,39 @@ export default function ModalScreen() {
           ) : null}
 
           {kind === 'temperature' ? (
-            <View style={styles.form}>
-              <View style={styles.labelRow}><Text style={styles.label}>Körpertemperatur</Text><InfoButton title="Körpertemperatur" text="Schiebe den Regler auf den gemessenen Wert. Die Farbe ist nur eine Orientierung und ersetzt keine ärztliche Einschätzung." /></View>
-              <Animated.View style={[styles.temperatureInputRow, errors.temperature && styles.temperatureInputError, { backgroundColor: temperatureBackground }]}>
-                <Animated.View style={{ transform: [{ scale: temperaturePulse }], alignItems: 'center' }}>
-                  <View style={styles.temperatureReadout}><Text style={styles.temperatureValue}>{temperatureValue.toFixed(1).replace('.', ',')}</Text><Text style={[styles.unit, { color: temperatureGuidance.color }]}>°C</Text></View>
-                  <View style={[styles.temperatureStatusPill, temperatureGuidance.status === 'hypothermia' && styles.statusHypothermia, temperatureGuidance.status === 'low' && styles.statusLow, temperatureGuidance.status === 'normal' && styles.statusNormal, temperatureGuidance.status === 'elevated' && styles.statusElevated, temperatureGuidance.status === 'fever' && styles.statusFever, temperatureGuidance.status === 'highFever' && styles.statusHighFever]}><Text style={[styles.temperatureStatusText, { color: temperatureGuidance.color }]}>{temperatureGuidance.label}</Text></View>
+            <View style={styles.temperatureForm}>
+              <View style={styles.temperatureSection}>
+                <View style={styles.labelRow}><Text style={styles.temperatureSectionTitle}>Körpertemperatur</Text><InfoButton compact title="Körpertemperatur" text="Schiebe den Regler auf den gemessenen Wert. Die Farbe ist nur eine Orientierung und ersetzt keine ärztliche Einschätzung." /></View>
+                <Animated.View style={[styles.temperatureInputRow, errors.temperature && styles.temperatureInputError, { backgroundColor: temperatureBackground }]}>
+                  <Animated.View style={{ transform: [{ scale: temperaturePulse }], alignItems: 'center' }}>
+                    <View style={styles.temperatureReadout}><Text style={[styles.temperatureValue, { color: temperatureToneColor }]}>{temperatureValue.toFixed(1).replace('.', ',')}</Text><Text style={[styles.unit, { color: temperatureToneColor }]}>°C</Text></View>
+                    <View style={[styles.temperatureStatusPill, temperatureGuidance.status === 'hypothermia' && styles.statusHypothermia, temperatureGuidance.status === 'low' && styles.statusLow, temperatureGuidance.status === 'normal' && styles.statusNormal, temperatureGuidance.status === 'elevated' && styles.statusElevated, temperatureGuidance.status === 'fever' && styles.statusFever, temperatureGuidance.status === 'highFever' && styles.statusHighFever]}><Text style={[styles.temperatureStatusText, { color: temperatureToneColor }]}>{temperatureGuidance.label}</Text></View>
+                  </Animated.View>
+                  <Text style={[styles.sliderHint, { color: temperatureToneColor }]}>Mit dem Regler einstellen</Text>
+                  <Slider
+                    accessibilityLabel="Körpertemperatur einstellen"
+                    minimumValue={34}
+                    maximumValue={43}
+                    step={0.1}
+                    value={temperatureValue}
+                    onValueChange={handleTemperatureChange}
+                    minimumTrackTintColor={temperatureToneColor}
+                    maximumTrackTintColor={`${temperatureToneColor}55`}
+                    thumbTintColor={temperatureToneColor}
+                    style={styles.slider}
+                  />
+                  <View style={styles.sliderLabels}><Text style={[styles.sliderLabel, { color: temperatureToneColor }]}>34,0°</Text><Text style={[styles.sliderLabel, { color: temperatureToneColor }]}>43,0°</Text></View>
+                  <Text style={[styles.temperatureGuidance, { color: temperatureToneColor }]}>{temperatureGuidance.detail}</Text>
                 </Animated.View>
-                <Text style={styles.sliderHint}>Mit dem Regler einstellen</Text>
-                <Slider
-                  accessibilityLabel="Körpertemperatur einstellen"
-                  minimumValue={34}
-                  maximumValue={43}
-                  step={0.1}
-                  value={temperatureValue}
-                  onValueChange={handleTemperatureChange}
-                  minimumTrackTintColor={temperatureGuidance.color}
-                  maximumTrackTintColor={Design.colors.borderStrong}
-                  thumbTintColor={temperatureGuidance.color}
-                  style={styles.slider}
-                />
-                <View style={styles.sliderLabels}><Text style={styles.sliderLabel}>34,0°</Text><Text style={styles.sliderLabel}>43,0°</Text></View>
-                <Text style={styles.temperatureGuidance}>{temperatureGuidance.detail}</Text>
-              </Animated.View>
-              {errors.temperature ? <Text style={styles.inlineError}>{errors.temperature}</Text> : null}
-              <Text style={styles.label}>Messmethode</Text>
-              <View style={styles.chips}>{METHODS.map((value) => <Pressable accessibilityRole="radio" accessibilityState={{ checked: method === value }} accessibilityLabel={`Messmethode ${value}`} key={value} onPress={() => setMethod(value)} style={[styles.chip, method === value && styles.chipActive]}><Text style={[styles.chipText, method === value && styles.chipTextActive]}>{value}</Text></Pressable>)}</View>
-              <View style={styles.dateTimeRow}>
-                <AppDateTimeInput label="Datum" value={recordedDate} onChange={setRecordedDate} maximumDate={new Date()} containerStyle={styles.dateField} error={errors.recordedAt} />
-                <AppDateTimeInput label="Uhrzeit" mode="time" value={recordedTime} onChange={setRecordedTime} containerStyle={styles.timeField} />
+                {errors.temperature ? <Text style={styles.inlineError}>{errors.temperature}</Text> : null}
+              </View>
+              <View style={styles.temperatureSection}>
+                <Text style={styles.temperatureSectionTitle}>Messmethode</Text>
+                <View style={styles.chips}>{METHODS.map((value) => <Pressable accessibilityRole="radio" accessibilityState={{ checked: method === value }} accessibilityLabel={`Messmethode ${value}`} key={value} onPress={() => setMethod(value)} style={[styles.chip, method === value && styles.chipActive]}><Text style={[styles.chipText, method === value && styles.chipTextActive]}>{value}</Text></Pressable>)}</View>
+              </View>
+              <View style={[styles.temperatureDateTimeRow, windowWidth >= 640 && styles.temperatureDateTimeRowWide]}>
+                <AppDateTimeInput appearance="reference" label="Datum" value={recordedDate} onChange={setRecordedDate} maximumDate={new Date()} containerStyle={[styles.temperatureDateField, windowWidth >= 640 && styles.temperatureDateFieldWide]} error={errors.recordedAt} />
+                <AppDateTimeInput appearance="reference" label="Uhrzeit" mode="time" value={recordedTime} onChange={setRecordedTime} containerStyle={[styles.temperatureDateField, windowWidth >= 640 && styles.temperatureDateFieldWide]} />
               </View>
               {isBackdatedSelection ? (
                 <View style={styles.backdateNotice}>
@@ -361,8 +378,8 @@ export default function ModalScreen() {
                   <View style={styles.backdateCopy}><Text style={styles.backdateTitle}>Rückwirkender Eintrag</Text><Text style={styles.backdateText}>Die Messung wird diesem Tag zugeordnet. Bestehende Erinnerungen werden nicht verschoben.</Text></View>
                 </View>
               ) : null}
-              {!editingTemperature && !isBackdatedSelection ? <AppInput error={errors.temperatureReminder} label="Standard-Erinnerung für jede Messung" optional value={temperatureReminder} onChangeText={setTemperatureReminder} placeholder="z. B. 4" keyboardType="decimal-pad" suffix="Stunden" helper={nightAlarmActiveNow ? 'Nachtalarm aktiv — diese Standard-Erinnerung ist für die aktuelle Messung pausiert.' : 'Wird gespeichert und künftig nach jeder Messung automatisch verwendet.'} /> : null}
-              <AppInput label="Notiz" optional value={note} onChangeText={setNote} placeholder="Wie geht es dem Kind?" multiline />
+              {!editingTemperature && !isBackdatedSelection ? <AppInput appearance="reference" error={errors.temperatureReminder} label="Standard-Erinnerung für jede Messung" optional value={temperatureReminder} onChangeText={setTemperatureReminder} placeholder="z. B. 4" keyboardType="decimal-pad" suffix="Stunden" helper={nightAlarmActiveNow ? 'Nachtalarm aktiv — diese Standard-Erinnerung ist für die aktuelle Messung pausiert.' : 'Wird gespeichert und künftig nach jeder Messung automatisch verwendet.'} /> : null}
+              <AppInput appearance="reference" label="Notiz" optional value={note} onChangeText={setNote} placeholder="Wie geht es dem Kind?" multiline />
             </View>
           ) : null}
 
@@ -472,7 +489,13 @@ export default function ModalScreen() {
             </View>
           ) : null}
         </ScrollView>
-        <View style={styles.footer}><AppButton label={feedback ? 'Gespeichert' : saving ? 'Wird gespeichert …' : editing ? 'Änderungen speichern' : kind === 'night' ? (nightAlarmActiveNow ? 'Nachtalarm aktualisieren' : 'Alarm aktivieren') : 'Speichern'} onPress={save} disabled={saving || Boolean(feedback)} /></View>
+        {kind === 'temperature' ? (
+          <LinearGradient colors={[Design.colors.referenceBackgroundTransparent, Design.colors.referenceBackgroundStrong, Design.colors.background]} style={styles.temperatureFooter}>
+            <AppButton label={feedback ? 'Gespeichert' : saving ? 'Wird gespeichert …' : editing ? 'Änderungen speichern' : 'Speichern'} onPress={save} disabled={saving || Boolean(feedback)} style={styles.temperatureSaveButton} labelStyle={styles.temperatureSaveLabel} />
+          </LinearGradient>
+        ) : (
+          <View style={styles.footer}><AppButton label={feedback ? 'Gespeichert' : saving ? 'Wird gespeichert …' : editing ? 'Änderungen speichern' : kind === 'night' ? (nightAlarmActiveNow ? 'Nachtalarm aktualisieren' : 'Alarm aktivieren') : 'Speichern'} onPress={save} disabled={saving || Boolean(feedback)} /></View>
+        )}
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -480,12 +503,17 @@ export default function ModalScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Design.colors.background },
+  temperatureHeader: { alignItems: 'center', paddingTop: 8, paddingBottom: 16, paddingHorizontal: 24 },
+  temperatureHandle: { width: 48, height: 4, borderRadius: 999, backgroundColor: Design.colors.referenceOutlineVariantSoft, marginBottom: 16 },
+  temperatureHeaderTitle: { color: Design.colors.ink, fontSize: 24, lineHeight: 32, fontFamily: Design.fonts.referenceHeadlineBold, marginBottom: 4 },
+  temperatureForChild: { color: Design.colors.inkSoft, fontSize: 16, lineHeight: 22, fontFamily: Design.fonts.referenceBody },
   handle: { width: 42, height: 5, borderRadius: 3, backgroundColor: Design.colors.borderStrong, alignSelf: 'center', marginTop: 8, marginBottom: 1 },
   header: { height: 54, paddingHorizontal: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   close: { color: Design.colors.primaryDark, fontSize: 14, lineHeight: 19, fontFamily: Design.fonts.bold },
   headerTitle: { color: Design.colors.ink, fontSize: 17, lineHeight: 23, fontFamily: Design.fonts.bold },
   headerSpacer: { width: 65 },
   content: { width: '100%', maxWidth: 620, alignSelf: 'center', padding: 20, paddingTop: 12, paddingBottom: 35, gap: 18 },
+  temperatureContent: { maxWidth: 672, paddingHorizontal: 24, paddingTop: 0, paddingBottom: 150, gap: 32 },
   forChild: { color: Design.colors.inkSoft, textAlign: 'center', fontSize: 13, lineHeight: 18, fontFamily: Design.fonts.semiBold },
   segmented: { flexDirection: 'row', padding: 5, borderRadius: 20, backgroundColor: Design.colors.backgroundMuted },
   segment: { flex: 1, minHeight: 44, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
@@ -500,34 +528,41 @@ const styles = StyleSheet.create({
   permissionTitle: { color: Design.colors.danger, fontSize: 14, lineHeight: 19, fontFamily: Design.fonts.bold },
   permissionText: { color: Design.colors.inkSoft, fontSize: 12, lineHeight: 18, fontFamily: Design.fonts.regular },
   form: { gap: 14 },
+  temperatureForm: { gap: 32 },
+  temperatureSection: { gap: 16 },
+  temperatureSectionTitle: { color: Design.colors.ink, fontSize: 18, lineHeight: 25, fontFamily: Design.fonts.referenceHeadlineSemiBold },
   labelRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   label: { color: Design.colors.ink, fontSize: 13, lineHeight: 18, fontFamily: Design.fonts.bold, marginTop: 7 },
-  temperatureInputRow: { minHeight: 230, borderRadius: Design.radius.hero, backgroundColor: Design.colors.primarySoft, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 19, paddingVertical: 21, borderWidth: 1, borderColor: Design.colors.border },
+  temperatureInputRow: { minHeight: 390, borderRadius: 24, backgroundColor: Design.colors.primarySoft, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32, paddingVertical: 32, borderWidth: 0, shadowColor: Design.colors.shadow, shadowOpacity: 0.04, shadowRadius: 20, shadowOffset: { width: 0, height: 4 }, elevation: 1 },
   temperatureInputError: { borderWidth: 1.5, borderColor: Design.colors.danger },
   inlineError: { color: Design.colors.danger, fontSize: 12, lineHeight: 17, fontFamily: Design.fonts.semiBold },
   temperatureReadout: { flexDirection: 'row', alignItems: 'flex-start' },
-  temperatureValue: { color: Design.colors.ink, fontSize: 62, lineHeight: 69, fontFamily: Design.fonts.bold, letterSpacing: -2.8 },
-  unit: { color: Design.colors.primary, fontSize: 23, fontFamily: Design.fonts.bold, marginLeft: 6 },
-  temperatureStatusPill: { borderRadius: 14, paddingHorizontal: 12, paddingVertical: 6, marginTop: 3 },
+  temperatureValue: { color: Design.colors.ink, fontSize: 72, lineHeight: 82, fontFamily: Design.fonts.referenceHeadlineBold, letterSpacing: -2.4 },
+  unit: { color: Design.colors.primary, fontSize: 30, lineHeight: 39, fontFamily: Design.fonts.referenceHeadlineSemiBold, marginLeft: 4, marginTop: 4 },
+  temperatureStatusPill: { borderRadius: 999, paddingHorizontal: 16, paddingVertical: 6, marginTop: 2, backgroundColor: Design.colors.surface, shadowColor: Design.colors.shadow, shadowOpacity: 0.04, shadowRadius: 5, shadowOffset: { width: 0, height: 2 } },
   statusHypothermia: { backgroundColor: 'rgba(255,255,255,0.72)' },
   statusLow: { backgroundColor: 'rgba(255,255,255,0.68)' },
   statusNormal: { backgroundColor: 'rgba(255,255,255,0.65)' },
   statusElevated: { backgroundColor: 'rgba(255,255,255,0.58)' },
   statusFever: { backgroundColor: 'rgba(255,255,255,0.58)' },
   statusHighFever: { backgroundColor: 'rgba(255,255,255,0.62)' },
-  temperatureStatusText: { fontSize: 12, lineHeight: 17, fontFamily: Design.fonts.bold },
-  sliderHint: { color: Design.colors.inkSoft, fontSize: 12, lineHeight: 17, fontFamily: Design.fonts.regular, marginTop: 8, marginBottom: 1 },
+  temperatureStatusText: { fontSize: 14, lineHeight: 20, fontFamily: Design.fonts.referenceBodySemiBold },
+  sliderHint: { color: Design.colors.inkSoft, fontSize: 14, lineHeight: 20, fontFamily: Design.fonts.referenceBody, marginTop: 24, marginBottom: 4, opacity: 0.7 },
   slider: { width: '100%', height: 44 },
   sliderLabels: { width: '100%', flexDirection: 'row', justifyContent: 'space-between', marginTop: -2 },
-  sliderLabel: { color: Design.colors.inkSoft, fontSize: 11, lineHeight: 15, fontFamily: Design.fonts.semiBold },
-  temperatureGuidance: { color: Design.colors.inkSoft, fontSize: 12, lineHeight: 18, textAlign: 'center', fontFamily: Design.fonts.regular, marginTop: 6 },
+  sliderLabel: { color: Design.colors.inkSoft, fontSize: 12, lineHeight: 17, fontFamily: Design.fonts.referenceBodyMedium, opacity: 0.6 },
+  temperatureGuidance: { color: Design.colors.inkSoft, fontSize: 14, lineHeight: 20, textAlign: 'center', fontFamily: Design.fonts.referenceBodyMedium, marginTop: 22, opacity: 0.8 },
   input: { minHeight: 54, backgroundColor: Design.colors.surface, borderWidth: 0, borderRadius: 17, paddingHorizontal: 16, color: Design.colors.ink, fontSize: 14, fontFamily: Design.fonts.semiBold, shadowColor: Design.colors.shadow, shadowOpacity: 0.04, shadowRadius: 8, shadowOffset: { width: 0, height: 3 } },
   multiline: { minHeight: 84, paddingTop: 14, textAlignVertical: 'top' },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: { minHeight: 44, paddingHorizontal: 15, borderRadius: 16, backgroundColor: Design.colors.surface, borderWidth: 1, borderColor: Design.colors.border, alignItems: 'center', justifyContent: 'center' },
-  chipActive: { backgroundColor: Design.colors.lavender, borderColor: Design.colors.primary },
-  chipText: { color: Design.colors.inkSoft, fontSize: 12, fontFamily: Design.fonts.bold },
-  chipTextActive: { color: Design.colors.primaryDark, fontFamily: Design.fonts.bold },
+  chip: { minHeight: 44, paddingHorizontal: 24, paddingVertical: 10, borderRadius: 12, backgroundColor: Design.colors.surface, borderWidth: 1, borderColor: Design.colors.referenceOutlineVariantFaint, alignItems: 'center', justifyContent: 'center', shadowColor: Design.colors.shadow, shadowOpacity: 0.03, shadowRadius: 4, shadowOffset: { width: 0, height: 2 } },
+  chipActive: { backgroundColor: Design.colors.referencePrimaryContainer, borderColor: Design.colors.referencePrimaryContainer },
+  chipText: { color: Design.colors.inkSoft, fontSize: 14, lineHeight: 20, fontFamily: Design.fonts.referenceBodyMedium },
+  chipTextActive: { color: Design.colors.referenceOnPrimaryContainer, fontFamily: Design.fonts.referenceBodyBold },
+  temperatureDateTimeRow: { flexDirection: 'column', gap: 16 },
+  temperatureDateTimeRowWide: { flexDirection: 'row' },
+  temperatureDateField: { width: '100%' },
+  temperatureDateFieldWide: { flex: 1, width: undefined },
   dateTimeRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-start', gap: 10 },
   dateField: { flexGrow: 1, flexBasis: 190 },
   timeField: { flexGrow: 1, flexBasis: 140 },
@@ -597,6 +632,9 @@ const styles = StyleSheet.create({
   previewTitle: { color: Design.colors.ink, fontSize: 13, lineHeight: 18, fontFamily: Design.fonts.bold },
   previewTimes: { color: Design.colors.inkSoft, fontSize: 12, lineHeight: 18, fontFamily: Design.fonts.regular },
   footer: { padding: 16, paddingBottom: Platform.OS === 'ios' ? 8 : 16, borderTopWidth: 0, backgroundColor: Design.colors.surface, shadowColor: Design.colors.shadow, shadowOpacity: 0.08, shadowRadius: 16, shadowOffset: { width: 0, height: -4 } },
+  temperatureFooter: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 16, paddingTop: 34, paddingBottom: 16 },
+  temperatureSaveButton: { minHeight: 56, borderRadius: 16, backgroundColor: Design.colors.primary, shadowColor: Design.colors.primary, shadowOpacity: 0.25, shadowRadius: 14, shadowOffset: { width: 0, height: 4 }, elevation: 4 },
+  temperatureSaveLabel: { fontSize: 18, lineHeight: 24, fontFamily: Design.fonts.referenceHeadlineBold },
   saveButton: { backgroundColor: Design.colors.primaryDark, borderRadius: 18, minHeight: 55, alignItems: 'center', justifyContent: 'center' },
   saveButtonText: { color: '#FFFFFF', fontSize: 15, fontFamily: Design.fonts.extraBold },
 });

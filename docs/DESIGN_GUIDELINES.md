@@ -20,6 +20,8 @@ Die verbindliche Quelle ist `constants/design.ts`.
 
 Die in `docs/stitch/gentle-child-health-tracker/` hinterlegten Stitch-Screens sind die verbindliche UI-Referenz für neue und überarbeitete Produktoberflächen. Ihre Informationsarchitektur, Abschnittsreihenfolge, Gruppierung, visuelle Hierarchie und Platzierung primärer Aktionen werden als Layout-Vertrag behandelt. Vorhandene Funktionen werden in diese Struktur eingeordnet; Abweichungen sind nur für medizinische Sicherheit, Barrierefreiheit oder zwingende Plattformunterschiede zulässig und müssen dokumentiert werden. Das exportierte HTML wird nicht direkt eingebettet, sondern mit den vorhandenen React-Native-Primitives originalgetreu und wartbar nachgebaut.
 
+Bei einem vollständigen Screen-Export umfasst „originalgetreu“ ausdrücklich auch Schriftfamilien, Typohierarchie, Seitenränder, Abschnittsabstände, Kartenmaße, Radien, Farbzustände, Control-Größen und die responsive Anordnung. Eine Umsetzung gilt erst nach visuellem Vergleich in schmaler und breiter Mobilansicht als abgeschlossen.
+
 Neue Funktionen nutzen zuerst die vorhandenen Primitives aus `components/ui/` und Werte aus `constants/design.ts`. Neue, visuell ähnliche Bausteine werden als wiederverwendbare Primitive ergänzt, statt pro Screen nachgebaut zu werden.
 
 ### Farben

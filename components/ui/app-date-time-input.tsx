@@ -18,6 +18,7 @@ type Props = {
   containerStyle?: StyleProp<ViewStyle>;
   maximumDate?: Date;
   minimumDate?: Date;
+  appearance?: 'default' | 'reference';
 };
 
 const WEEKDAYS = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
@@ -98,7 +99,9 @@ export function AppDateTimeInput({
   containerStyle,
   maximumDate,
   minimumDate,
+  appearance = 'default',
 }: Props) {
+  const reference = appearance === 'reference';
   const parsedTime = parseTime(value);
   const initialDate = clampDate(parseGermanDate(value) ?? new Date(), minimumDate, maximumDate);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -184,16 +187,16 @@ export function AppDateTimeInput({
 
   return (
     <View style={[styles.container, containerStyle]}>
-      <Text style={styles.label}>{label}{optional ? <Text style={styles.optional}> (optional)</Text> : null}</Text>
+      <Text style={[styles.label, reference && styles.referenceLabel]}>{label}{optional ? <Text style={styles.optional}> (optional)</Text> : null}</Text>
       <Pressable
         accessibilityLabel={`${label}: ${value || 'nicht ausgewählt'}. ${mode === 'date' ? 'Kalender' : 'Uhrzeitregler'} öffnen`}
         accessibilityRole="button"
         onPress={openPicker}
-        style={({ pressed }) => [styles.inputShell, error && styles.inputError, pressed && styles.inputPressed]}>
+        style={({ pressed }) => [styles.inputShell, reference && styles.referenceInputShell, error && styles.inputError, pressed && styles.inputPressed]}>
         <View style={styles.leadingIcon}>
           <IconSymbol name={mode === 'date' ? 'calendar' : 'clock.fill'} size={19} color={Design.colors.primaryDark} />
         </View>
-        <Text style={[styles.value, !value && styles.placeholder]} numberOfLines={1}>{displayValue}</Text>
+        <Text style={[styles.value, reference && styles.referenceValue, !value && styles.placeholder]} numberOfLines={1}>{displayValue}</Text>
         <IconSymbol name="chevron.down" size={17} color={Design.colors.inkFaint} />
       </Pressable>
       {error ? <Text accessibilityLiveRegion="polite" style={styles.error}>{error}</Text> : null}
@@ -412,6 +415,9 @@ const styles = StyleSheet.create({
   inputPressed: { opacity: 0.72, transform: [{ scale: 0.99 }] },
   leadingIcon: { width: 36, height: 36, borderRadius: 13, backgroundColor: Design.colors.primarySoft, alignItems: 'center', justifyContent: 'center' },
   value: { flex: 1, color: Design.colors.ink, fontSize: 14, lineHeight: 20, fontFamily: Design.fonts.semiBold },
+  referenceLabel: { fontFamily: Design.fonts.referenceHeadlineSemiBold, fontSize: 14, lineHeight: 20 },
+  referenceInputShell: { minHeight: 52, borderRadius: 16, borderColor: Design.colors.referenceOutlineVariantSoft, backgroundColor: Design.colors.surface, shadowColor: Design.colors.shadow, shadowOpacity: 0.04, shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 1 },
+  referenceValue: { fontFamily: Design.fonts.referenceBodyMedium, fontSize: 15, lineHeight: 21 },
   placeholder: { color: Design.colors.inkFaint, fontFamily: Design.fonts.medium },
   error: { color: Design.colors.danger, fontSize: 12, lineHeight: 17, fontFamily: Design.fonts.semiBold },
   monthHeader: { minHeight: 52, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 6 },

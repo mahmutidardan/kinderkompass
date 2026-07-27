@@ -7,14 +7,15 @@ import { Design } from '@/constants/design';
 type Props = {
   title: string;
   text: string;
+  compact?: boolean;
 };
 
-export function InfoButton({ title, text }: Props) {
+export function InfoButton({ title, text, compact = false }: Props) {
   const [open, setOpen] = useState(false);
 
   return (
     <>
-      <Pressable accessibilityLabel={`Info zu ${title}`} accessibilityRole="button" onPress={() => setOpen((current) => !current)} style={[styles.button, open && styles.buttonActive]}>
+      <Pressable accessibilityLabel={`Info zu ${title}`} accessibilityRole="button" hitSlop={compact ? 6 : undefined} onPress={() => setOpen((current) => !current)} style={[styles.button, compact && styles.buttonCompact, open && styles.buttonActive]}>
         <IconSymbol name="info" size={17} color={open ? '#FFFFFF' : Design.colors.primaryDark} />
       </Pressable>
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
@@ -33,6 +34,7 @@ export function InfoButton({ title, text }: Props) {
 
 const styles = StyleSheet.create({
   button: { width: 44, height: 44, borderRadius: 16, borderWidth: 1, borderColor: Design.colors.border, backgroundColor: Design.colors.surface, alignItems: 'center', justifyContent: 'center' },
+  buttonCompact: { width: 32, height: 32, borderRadius: 999, borderColor: Design.colors.referenceOutlineVariant },
   buttonActive: { backgroundColor: Design.colors.primaryDark, borderColor: Design.colors.primaryDark },
   overlay: { flex: 1, backgroundColor: 'rgba(48,45,54,0.38)', alignItems: 'center', justifyContent: 'center', padding: 24 },
   dialog: { width: '100%', maxWidth: 360, borderRadius: Design.radius.hero, padding: 21, backgroundColor: Design.colors.surface, ...Design.shadow.floating },

@@ -11,6 +11,13 @@ import {
   Manrope_800ExtraBold,
   useFonts,
 } from '@expo-google-fonts/manrope';
+import {
+  NunitoSans_400Regular,
+  NunitoSans_500Medium,
+  NunitoSans_600SemiBold,
+  NunitoSans_700Bold,
+} from '@expo-google-fonts/nunito-sans';
+import { Literata_600SemiBold, Literata_700Bold } from '@expo-google-fonts/literata';
 import 'react-native-reanimated';
 
 import { Design } from '@/constants/design';
@@ -49,6 +56,12 @@ function AppNavigator() {
     Manrope_600SemiBold,
     Manrope_700Bold,
     Manrope_800ExtraBold,
+    NunitoSans_400Regular,
+    NunitoSans_500Medium,
+    NunitoSans_600SemiBold,
+    NunitoSans_700Bold,
+    Literata_600SemiBold,
+    Literata_700Bold,
   });
   const theme = {
     ...DefaultTheme,

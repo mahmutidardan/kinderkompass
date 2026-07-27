@@ -1,5 +1,5 @@
 import { ReactNode } from 'react';
-import { Pressable, StyleProp, StyleSheet, Text, ViewStyle } from 'react-native';
+import { Pressable, StyleProp, StyleSheet, Text, TextStyle, ViewStyle } from 'react-native';
 
 import { Design } from '@/constants/design';
 
@@ -13,6 +13,7 @@ type Props = {
   disabled?: boolean;
   compact?: boolean;
   style?: StyleProp<ViewStyle>;
+  labelStyle?: StyleProp<TextStyle>;
   accessibilityLabel?: string;
 };
 
@@ -32,7 +33,7 @@ const foregrounds: Record<ButtonVariant, string> = {
   ghost: Design.colors.primary,
 };
 
-export function AppButton({ label, onPress, variant = 'primary', icon, disabled, compact, style, accessibilityLabel }: Props) {
+export function AppButton({ label, onPress, variant = 'primary', icon, disabled, compact, style, labelStyle, accessibilityLabel }: Props) {
   return (
     <Pressable
       accessibilityRole="button"
@@ -42,7 +43,7 @@ export function AppButton({ label, onPress, variant = 'primary', icon, disabled,
       onPress={onPress}
       style={({ pressed }) => [styles.button, { backgroundColor: backgrounds[variant] }, compact && styles.compact, disabled && styles.disabled, pressed && styles.pressed, style]}>
       {icon}
-      <Text style={[styles.label, { color: foregrounds[variant] }]}>{label}</Text>
+      <Text style={[styles.label, { color: foregrounds[variant] }, labelStyle]}>{label}</Text>
     </Pressable>
   );
 }
