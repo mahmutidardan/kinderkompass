@@ -24,9 +24,11 @@ export const Design = {
     danger: '#B6514B',
     dangerSoft: '#FBE9E6',
     temperatureLow: '#E8F1F8',
+    temperatureLowStrong: '#8AAEC7',
     temperatureNormal: '#E5F1E7',
     temperatureElevated: '#FAEDCF',
     temperatureFever: '#FBE6E2',
+    temperatureFeverStrong: '#EBAFA9',
     shadow: '#334239',
   },
   fonts: {

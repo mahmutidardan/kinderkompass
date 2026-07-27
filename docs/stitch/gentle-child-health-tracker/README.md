@@ -12,5 +12,6 @@ Diese Dateien sind ein lokaler Design- und Codeexport des Stitch-Projekts `12497
 
 - `screens.html` enthält die fünf bereitgestellten HTML-Exports, jeweils durch einen Kommentar getrennt.
 - `assets/` enthält die aus dem Export referenzierten Bilddateien.
+- `measurement-capture.html` enthält den zusätzlichen Entwurf für die Temperaturerfassung.
 
 Bei einer späteren Umsetzung werden Struktur und Interaktionsideen an die Fieberwache-Komponenten und `constants/design.ts` angepasst. Der Stitch-Code wird nicht unverändert in die React-Native-App kopiert.

@@ -118,7 +118,7 @@ export default function ModalScreen() {
   const temperatureGuidance = getTemperatureGuidance(temperatureValue, activeChild?.birthDate);
   const temperatureBackground = temperatureAnimation.interpolate({
     inputRange: [34, 35, 36.5, 37.6, temperatureGuidance.feverFrom, 39, 43],
-    outputRange: ['#B9D2EA', '#7BA8CC', '#E2F1E5', '#F9E7B7', '#F6D6D0', '#F5C7C7', '#F0A9A9'],
+    outputRange: [Design.colors.temperatureLowStrong, Design.colors.temperatureLow, Design.colors.temperatureNormal, Design.colors.temperatureElevated, Design.colors.temperatureFever, Design.colors.temperatureFeverStrong, Design.colors.temperatureFeverStrong],
   });
   const nightPreview = useMemo(() => nightMode === 'interval'
     ? buildIntervalSchedule(nightStart, nightEnd, nightInterval)
@@ -341,7 +341,7 @@ export default function ModalScreen() {
                   value={temperatureValue}
                   onValueChange={handleTemperatureChange}
                   minimumTrackTintColor={temperatureGuidance.color}
-                  maximumTrackTintColor="#D7D0E3"
+                  maximumTrackTintColor={Design.colors.borderStrong}
                   thumbTintColor={temperatureGuidance.color}
                   style={styles.slider}
                 />
@@ -502,11 +502,11 @@ const styles = StyleSheet.create({
   form: { gap: 14 },
   labelRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   label: { color: Design.colors.ink, fontSize: 13, lineHeight: 18, fontFamily: Design.fonts.bold, marginTop: 7 },
-  temperatureInputRow: { minHeight: 218, borderRadius: Design.radius.hero, backgroundColor: Design.colors.primarySoft, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 19, paddingVertical: 19 },
+  temperatureInputRow: { minHeight: 230, borderRadius: Design.radius.hero, backgroundColor: Design.colors.primarySoft, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 19, paddingVertical: 21, borderWidth: 1, borderColor: Design.colors.border },
   temperatureInputError: { borderWidth: 1.5, borderColor: Design.colors.danger },
   inlineError: { color: Design.colors.danger, fontSize: 12, lineHeight: 17, fontFamily: Design.fonts.semiBold },
   temperatureReadout: { flexDirection: 'row', alignItems: 'flex-start' },
-  temperatureValue: { color: Design.colors.ink, fontSize: 54, lineHeight: 62, fontFamily: Design.fonts.bold, letterSpacing: -2.2 },
+  temperatureValue: { color: Design.colors.ink, fontSize: 62, lineHeight: 69, fontFamily: Design.fonts.bold, letterSpacing: -2.8 },
   unit: { color: Design.colors.primary, fontSize: 23, fontFamily: Design.fonts.bold, marginLeft: 6 },
   temperatureStatusPill: { borderRadius: 14, paddingHorizontal: 12, paddingVertical: 6, marginTop: 3 },
   statusHypothermia: { backgroundColor: 'rgba(255,255,255,0.72)' },
@@ -524,8 +524,8 @@ const styles = StyleSheet.create({
   input: { minHeight: 54, backgroundColor: Design.colors.surface, borderWidth: 0, borderRadius: 17, paddingHorizontal: 16, color: Design.colors.ink, fontSize: 14, fontFamily: Design.fonts.semiBold, shadowColor: Design.colors.shadow, shadowOpacity: 0.04, shadowRadius: 8, shadowOffset: { width: 0, height: 3 } },
   multiline: { minHeight: 84, paddingTop: 14, textAlignVertical: 'top' },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: { minHeight: 44, paddingHorizontal: 15, borderRadius: 16, backgroundColor: Design.colors.surface, alignItems: 'center', justifyContent: 'center' },
-  chipActive: { backgroundColor: Design.colors.lavender },
+  chip: { minHeight: 44, paddingHorizontal: 15, borderRadius: 16, backgroundColor: Design.colors.surface, borderWidth: 1, borderColor: Design.colors.border, alignItems: 'center', justifyContent: 'center' },
+  chipActive: { backgroundColor: Design.colors.lavender, borderColor: Design.colors.primary },
   chipText: { color: Design.colors.inkSoft, fontSize: 12, fontFamily: Design.fonts.bold },
   chipTextActive: { color: Design.colors.primaryDark, fontFamily: Design.fonts.bold },
   dateTimeRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-start', gap: 10 },
