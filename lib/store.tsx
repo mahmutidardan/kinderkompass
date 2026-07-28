@@ -93,6 +93,7 @@ type AppState = {
 };
 
 type Store = AppState & {
+  readOnly: boolean;
   hydrated: boolean;
   storageError?: string;
   syncStatus: 'local' | 'syncing' | 'synced' | 'error';
@@ -157,7 +158,7 @@ function normalizeState(parsed: Partial<AppState>): AppState {
   };
 }
 
-export function StoreProvider({ children, storageScope = 'local-guest', legacyStorageScope, cloudFamilyId, cloudUserId }: PropsWithChildren<{ storageScope?: string; legacyStorageScope?: string; cloudFamilyId?: string; cloudUserId?: string }>) {
+export function StoreProvider({ children, storageScope = 'local-guest', legacyStorageScope, cloudFamilyId, cloudUserId, readOnly = false }: PropsWithChildren<{ storageScope?: string; legacyStorageScope?: string; cloudFamilyId?: string; cloudUserId?: string; readOnly?: boolean }>) {
   const storageKey = `${STORAGE_KEY}/${storageScope}`;
   const [state, setState] = useState<AppState>(initialState);
   const [hydrated, setHydrated] = useState(false);
@@ -211,11 +212,13 @@ export function StoreProvider({ children, storageScope = 'local-guest', legacySt
       } catch {
         setStorageError('Änderungen konnten nicht dauerhaft auf diesem Gerät gespeichert werden.');
       }
-      if (cloudFamilyId && cloudUserId && supabase && serializedState !== lastSyncedState.current) {
+      if (cloudFamilyId && cloudUserId && supabase && !readOnly && serializedState !== lastSyncedState.current) {
         setSyncStatus('syncing');
         const { error } = await supabase.rpc('update_family_state', { target_family_id: cloudFamilyId, next_state: state });
         if (!error) lastSyncedState.current = serializedState;
         setSyncStatus(error ? 'error' : 'synced');
+      } else if (cloudFamilyId && readOnly) {
+        setSyncStatus('synced');
       } else if (cloudUserId && supabase && !cloudFamilyId) {
         setSyncStatus('syncing');
         const { error } = await supabase.from('user_states').upsert({ user_id: cloudUserId, state, updated_at: new Date().toISOString() });
@@ -225,7 +228,7 @@ export function StoreProvider({ children, storageScope = 'local-guest', legacySt
       }
     }, 450);
     return () => clearTimeout(timeout);
-  }, [cloudFamilyId, cloudUserId, hydrated, state, storageKey, storageScope]);
+  }, [cloudFamilyId, cloudUserId, hydrated, readOnly, state, storageKey, storageScope]);
 
   useEffect(() => {
     if (!cloudFamilyId || !supabase) return undefined;
@@ -255,6 +258,7 @@ export function StoreProvider({ children, storageScope = 'local-guest', legacySt
 
   const value = useMemo<Store>(() => {
     const activeChild = state.children.find((child) => child.id === state.activeChildId) ?? state.children[0];
+    const blockReadOnlyWrite = () => setStorageError('Dieser Familienzugriff ist schreibgeschützt.');
 
     return {
       ...state,
@@ -265,7 +269,9 @@ export function StoreProvider({ children, storageScope = 'local-guest', legacySt
       storageError,
       syncStatus,
       storageProtection,
+      readOnly,
       addChild: (name, birthDate, gender, avatar, photoUri) => {
+        if (readOnly) return blockReadOnlyWrite();
         const child: Child = { id: newId('child'), name: name.trim(), birthDate: birthDate?.trim() || undefined, gender, avatar, photoUri: photoUri?.trim() || undefined };
         setState((current) => ({
           ...current,
@@ -274,6 +280,7 @@ export function StoreProvider({ children, storageScope = 'local-guest', legacySt
         }));
       },
       updateChild: (id, name, birthDate, gender, avatar, photoUri) => {
+        if (readOnly) return blockReadOnlyWrite();
         setState((current) => ({
           ...current,
           children: current.children.map((child) => child.id === id
@@ -282,6 +289,7 @@ export function StoreProvider({ children, storageScope = 'local-guest', legacySt
         }));
       },
       deleteChild: (id) => {
+        if (readOnly) return blockReadOnlyWrite();
         setState((current) => {
           const remainingChildren = current.children.filter((child) => child.id !== id);
           const nextActiveChildId = current.activeChildId === id
@@ -307,89 +315,135 @@ export function StoreProvider({ children, storageScope = 'local-guest', legacySt
         });
       },
       setActiveChild: (id) => setState((current) => ({ ...current, activeChildId: id })),
-      setTemperatureReminderHours: (hours) => setState((current) => ({ ...current, temperatureReminderHours: hours })),
-      setTemperatureReminderEnabled: (enabled) => setState((current) => ({ ...current, temperatureReminderEnabled: enabled })),
-      setTemperatureReminderSchedule: (reminderAt, notificationId) => setState((current) => ({
+      setTemperatureReminderHours: (hours) => {
+        if (readOnly) return blockReadOnlyWrite();
+        setState((current) => ({ ...current, temperatureReminderHours: hours }));
+      },
+      setTemperatureReminderEnabled: (enabled) => {
+        if (readOnly) return blockReadOnlyWrite();
+        setState((current) => ({ ...current, temperatureReminderEnabled: enabled }));
+      },
+      setTemperatureReminderSchedule: (reminderAt, notificationId) => {
+        if (readOnly) return blockReadOnlyWrite();
+        setState((current) => ({
         ...current,
         temperatureReminderAt: reminderAt,
         temperatureNotificationId: notificationId,
-      })),
-      setNightAlarm: (activeUntil, summary, times, notificationIds) => setState((current) => ({
+        }));
+      },
+      setNightAlarm: (activeUntil, summary, times, notificationIds) => {
+        if (readOnly) return blockReadOnlyWrite();
+        setState((current) => ({
         ...current,
         nightAlarmActiveUntil: activeUntil,
         nightAlarmSummary: summary,
         nightAlarmTimes: times,
         nightNotificationIds: notificationIds,
-      })),
-      saveDoctorContact: (childId, contact) => setState((current) => ({
+        }));
+      },
+      saveDoctorContact: (childId, contact) => {
+        if (readOnly) return blockReadOnlyWrite();
+        setState((current) => ({
         ...current,
         doctorContacts: [
           ...current.doctorContacts.filter((item) => item.childId !== childId),
           { ...contact, childId, name: contact.name.trim(), phone: contact.phone.trim(), address: contact.address.trim() },
         ],
-      })),
-      deleteDoctorContact: (childId) => setState((current) => ({
+        }));
+      },
+      deleteDoctorContact: (childId) => {
+        if (readOnly) return blockReadOnlyWrite();
+        setState((current) => ({
         ...current,
         doctorContacts: current.doctorContacts.filter((item) => item.childId !== childId),
-      })),
+        }));
+      },
       addAppointment: (entry) => {
+        if (readOnly) return blockReadOnlyWrite();
         if (!activeChild) return;
         setState((current) => ({
           ...current,
           appointments: [...current.appointments, { ...entry, id: newId('appointment'), childId: activeChild.id }],
         }));
       },
-      updateAppointment: (id, entry) => setState((current) => ({
+      updateAppointment: (id, entry) => {
+        if (readOnly) return blockReadOnlyWrite();
+        setState((current) => ({
         ...current,
         appointments: current.appointments.map((item) => item.id === id ? { ...item, ...entry } : item),
-      })),
-      deleteAppointment: (id) => setState((current) => ({
+        }));
+      },
+      deleteAppointment: (id) => {
+        if (readOnly) return blockReadOnlyWrite();
+        setState((current) => ({
         ...current,
         appointments: current.appointments.filter((item) => item.id !== id),
-      })),
+        }));
+      },
       addTemperature: (entry) => {
+        if (readOnly) return blockReadOnlyWrite();
         if (!activeChild) return;
         setState((current) => ({
           ...current,
           temperatures: [...current.temperatures, { ...entry, id: newId('temp'), childId: activeChild.id }],
         }));
       },
-      updateTemperature: (id, entry) => setState((current) => ({
+      updateTemperature: (id, entry) => {
+        if (readOnly) return blockReadOnlyWrite();
+        setState((current) => ({
         ...current,
         temperatures: current.temperatures.map((item) => item.id === id ? { ...item, ...entry } : item),
-      })),
-      deleteTemperature: (id) => setState((current) => ({
+        }));
+      },
+      deleteTemperature: (id) => {
+        if (readOnly) return blockReadOnlyWrite();
+        setState((current) => ({
         ...current,
         temperatures: current.temperatures.filter((item) => item.id !== id),
-      })),
+        }));
+      },
       addMedication: (entry) => {
+        if (readOnly) return blockReadOnlyWrite();
         if (!activeChild) return;
         setState((current) => ({
           ...current,
           medications: [...current.medications, { ...entry, id: newId('med'), childId: activeChild.id }],
         }));
       },
-      updateMedication: (id, entry) => setState((current) => ({
+      updateMedication: (id, entry) => {
+        if (readOnly) return blockReadOnlyWrite();
+        setState((current) => ({
         ...current,
         medications: current.medications.map((item) => item.id === id ? { ...item, ...entry } : item),
-      })),
-      deleteMedication: (id) => setState((current) => ({
+        }));
+      },
+      deleteMedication: (id) => {
+        if (readOnly) return blockReadOnlyWrite();
+        setState((current) => ({
         ...current,
         medications: current.medications.filter((item) => item.id !== id),
-      })),
-      clearMedicationReminder: (id) => setState((current) => ({
+        }));
+      },
+      clearMedicationReminder: (id) => {
+        if (readOnly) return blockReadOnlyWrite();
+        setState((current) => ({
         ...current,
         medications: current.medications.map((item) => item.id === id
           ? { ...item, reminderAt: undefined, reminderNotificationId: undefined }
           : item),
-      })),
-      clearAppointmentReminder: (id) => setState((current) => ({
+        }));
+      },
+      clearAppointmentReminder: (id) => {
+        if (readOnly) return blockReadOnlyWrite();
+        setState((current) => ({
         ...current,
         appointments: current.appointments.map((item) => item.id === id
           ? { ...item, reminderMinutes: undefined, reminderNotificationId: undefined }
           : item),
-      })),
+        }));
+      },
       addMedicationInventoryItem: (entry) => {
+        if (readOnly) return blockReadOnlyWrite();
         setState((current) => ({
           ...current,
           medicationInventory: [...current.medicationInventory, {
@@ -402,6 +456,7 @@ export function StoreProvider({ children, storageScope = 'local-guest', legacySt
         }));
       },
       updateMedicationInventoryItem: (id, entry) => {
+        if (readOnly) return blockReadOnlyWrite();
         setState((current) => ({
           ...current,
           medicationInventory: current.medicationInventory.map((item) => item.id === id ? {
@@ -413,13 +468,14 @@ export function StoreProvider({ children, storageScope = 'local-guest', legacySt
         }));
       },
       deleteMedicationInventoryItem: (id) => {
+        if (readOnly) return blockReadOnlyWrite();
         setState((current) => ({
           ...current,
           medicationInventory: current.medicationInventory.filter((item) => item.id !== id),
         }));
       },
     };
-  }, [clock, hydrated, state, storageError, syncStatus]);
+  }, [clock, hydrated, readOnly, state, storageError, syncStatus]);
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
 }

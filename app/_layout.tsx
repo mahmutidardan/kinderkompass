@@ -60,7 +60,7 @@ function FamilyScopedStore({ storageScope }: { storageScope: string }) {
   const sharing = useFamilySharing();
   if (!sharing.ready) return <LoadingState label="Familienbereich wird geladen" />;
   const sharedStorageScope = sharing.activeFamily ? `family-${sharing.activeFamily.id}` : storageScope;
-  return <StoreProvider key={sharedStorageScope} storageScope={sharedStorageScope} legacyStorageScope={sharing.activeFamily ? storageScope : undefined} cloudFamilyId={sharing.activeFamily?.id} cloudUserId={user?.id}><AppNavigator /></StoreProvider>;
+  return <StoreProvider key={sharedStorageScope} storageScope={sharedStorageScope} legacyStorageScope={sharing.activeFamily ? storageScope : undefined} cloudFamilyId={sharing.activeFamily?.id} cloudUserId={user?.id} readOnly={sharing.activeFamily?.role === 'read_only'}><AppNavigator /></StoreProvider>;
 }
 
 function AppNavigator() {

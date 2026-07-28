@@ -1,6 +1,6 @@
 -- Requires a Supabase test database with pgTAP and the family-sharing migrations applied.
 begin;
-select plan(12);
+select plan(15);
 
 insert into auth.users (id, aud, role, email, encrypted_password, raw_app_meta_data, raw_user_meta_data)
 values
@@ -23,6 +23,9 @@ select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000401
 select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000401","email":"owner-invite@test.invalid","role":"authenticated"}', true);
 select lives_ok($$select public.create_family_invite('00000000-0000-0000-0000-000000000501', 'readonly-invite@test.invalid', 'read_only', array['invite-child-a'], null)$$, 'owner can create a selected-child read-only invitation');
 select is((select count(*) from public.family_invite_children child join public.family_invites invite on invite.id = child.invite_id where invite.email = 'readonly-invite@test.invalid'), 1::bigint, 'invitation stores selected children');
+select lives_ok($$select public.create_family_invite('00000000-0000-0000-0000-000000000501', 'resend@test.invalid', 'caregiver', array['invite-child-a'], null)$$, 'owner can create a pending invitation to resend');
+select lives_ok($$select public.create_family_invite('00000000-0000-0000-0000-000000000501', 'resend@test.invalid', 'read_only', array['invite-child-b'], null)$$, 'owner can update an open invitation before resend');
+select is((select role from public.family_invites where email = 'resend@test.invalid' and status = 'pending'), 'read_only', 'resend keeps the current requested role');
 
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000402', true);
 select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000402","email":"readonly-invite@test.invalid","role":"authenticated"}', true);
