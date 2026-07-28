@@ -23,9 +23,14 @@ Deno.serve(async (request) => {
   const { data: authData, error: authError } = await userClient.auth.getUser();
   if (authError || !authData.user) return Response.json({ error: 'not authenticated' }, { status: 401, headers: corsHeaders });
 
-  const body = await request.json().catch(() => ({})) as { familyId?: string; email?: string; redirectTo?: string };
+  const body = await request.json().catch(() => ({})) as { familyId?: string; email?: string; role?: string; childIds?: string[]; accessExpiresAt?: string | null; redirectTo?: string };
   const email = body.email?.trim().toLowerCase();
-  if (!body.familyId || !email || !/^\S+@\S+\.\S+$/.test(email)) {
+  const role = body.role?.trim() || 'caregiver';
+  const childIds = Array.isArray(body.childIds) ? body.childIds.filter((id): id is string => typeof id === 'string' && id.length > 0) : [];
+  const accessExpiresAt = body.accessExpiresAt ? new Date(body.accessExpiresAt) : undefined;
+  if (!body.familyId || !email || !/^\S+@\S+\.\S+$/.test(email)
+    || !['owner', 'guest', 'caregiver', 'read_only', 'temporary_guest'].includes(role)
+    || (body.accessExpiresAt && Number.isNaN(accessExpiresAt?.getTime()))) {
     return Response.json({ error: 'invalid invitation' }, { status: 400, headers: corsHeaders });
   }
 
@@ -39,6 +44,9 @@ Deno.serve(async (request) => {
   const { data: inviteId, error: inviteError } = await userClient.rpc('create_family_invite', {
     target_family_id: body.familyId,
     target_email: email,
+    target_role: role,
+    target_child_ids: childIds,
+    target_access_expires_at: accessExpiresAt?.toISOString() ?? null,
   });
   if (inviteError || !inviteId) {
     const status = inviteError?.message === 'rate limited' ? 429 : 400;

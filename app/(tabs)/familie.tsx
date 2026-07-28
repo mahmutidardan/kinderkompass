@@ -17,10 +17,10 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Design } from '@/constants/design';
 import { useAuth } from '@/lib/auth';
 import { Child, ChildGender, useStore } from '@/lib/store';
-import { isValidBirthDate } from '@/lib/date-time';
+import { formatGermanDate, isValidBirthDate, parseGermanDate } from '@/lib/date-time';
 import { cancelReminders } from '@/lib/notifications';
 import { useSubscription } from '@/lib/subscription';
-import { FamilyMember, useFamilySharing } from '@/lib/family-sharing';
+import { FamilyAccessOptions, FamilyMember, FamilyRole, useFamilySharing } from '@/lib/family-sharing';
 
 export default function FamilieScreen() {
   const { configured, guest, localMode, user } = useAuth();
@@ -47,9 +47,16 @@ export default function FamilieScreen() {
   const [pendingDeleteId, setPendingDeleteId] = useState<string>();
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteRole, setInviteRole] = useState<FamilyRole>('caregiver');
+  const [inviteChildIds, setInviteChildIds] = useState<string[]>([]);
+  const [inviteExpiryDate, setInviteExpiryDate] = useState('');
   const [inviteError, setInviteError] = useState<string>();
   const [inviteFeedback, setInviteFeedback] = useState<string>();
   const [pendingMemberRemoval, setPendingMemberRemoval] = useState<FamilyMember>();
+  const [editingMember, setEditingMember] = useState<FamilyMember>();
+  const [memberRole, setMemberRole] = useState<FamilyRole>('caregiver');
+  const [memberChildIds, setMemberChildIds] = useState<string[]>([]);
+  const [memberExpiryDate, setMemberExpiryDate] = useState('');
   const pendingDeleteChild = children.find((child) => child.id === pendingDeleteId);
   const canManageProfiles = !sharing.enabled || sharing.canManageFamily;
   const usesSharedFamily = Boolean(sharing.enabled && sharing.activeFamily);
@@ -166,14 +173,45 @@ export default function FamilieScreen() {
       setInviteError('Bitte trage eine gültige E-Mail-Adresse ein.');
       return;
     }
+    const access = accessOptions(inviteRole, inviteChildIds, inviteExpiryDate);
+    if (!access) {
+      setInviteError('Bitte wähle für den zeitlich begrenzten Zugang ein zukünftiges Enddatum.');
+      return;
+    }
     setInviteError(undefined);
     try {
-      const delivery = await sharing.inviteMember(email);
+      const delivery = await sharing.inviteMember(email, access);
       setInviteOpen(false);
       setInviteEmail('');
+      setInviteRole('caregiver');
+      setInviteChildIds([]);
+      setInviteExpiryDate('');
       setInviteFeedback(delivery === 'email-sent' ? 'Einladung wurde per E-Mail gesendet.' : 'Einladung ist hinterlegt. Die Person kann sie nach der Anmeldung annehmen.');
     } catch (error) {
       setInviteError(error instanceof Error ? error.message : 'Die Einladung konnte nicht gesendet werden.');
+    }
+  }
+
+  function beginMemberEdit(member: FamilyMember) {
+    setEditingMember(member);
+    setMemberRole(member.role);
+    setMemberChildIds(member.allChildren ? [] : member.childIds);
+    setMemberExpiryDate(member.accessExpiresAt ? formatGermanDate(new Date(member.accessExpiresAt)) : '');
+  }
+
+  async function saveMemberAccess() {
+    if (!editingMember) return;
+    const access = accessOptions(memberRole, memberChildIds, memberExpiryDate);
+    if (!access) {
+      setInviteFeedback('Bitte wähle ein zukünftiges Enddatum für den zeitlich begrenzten Zugang.');
+      return;
+    }
+    try {
+      await sharing.updateMemberAccess(editingMember.userId, access);
+      setEditingMember(undefined);
+      setInviteFeedback('Zugriff wurde aktualisiert.');
+    } catch {
+      setInviteFeedback('Der Zugriff konnte nicht aktualisiert werden.');
     }
   }
 
@@ -277,7 +315,7 @@ export default function FamilieScreen() {
         <AppButton label="Weiteres Kinderprofil" variant="soft" onPress={() => setShowForm(true)} icon={<IconSymbol name="plus" size={19} color={Design.colors.primaryDark} />} />
       ) : null}
 
-      <AppSectionHeading title="Familienzugriff" subtitle="Gemeinsam dokumentieren und informiert bleiben" infoTitle="Familienzugriff" infoText="Der Besitzer kann weitere Personen per E-Mail einladen. Gäste sehen den gemeinsamen Familienbereich und dürfen Einträge dokumentieren, aber keine Kinderprofile, Einladungen oder Abos verwalten." />
+      <AppSectionHeading title="Familienzugriff" subtitle="Gemeinsam dokumentieren und informiert bleiben" infoTitle="Familienzugriff" infoText="Du legst pro Person Rolle, Kinderzugriff und bei Bedarf ein Ablaufdatum fest. Schreibgeschützte Personen sehen nur die freigegebenen Kinder und können keine Einträge ändern." />
       {inviteFeedback ? <View accessibilityLiveRegion="polite" style={styles.successBanner}><IconSymbol name="checkmark" size={18} color={Design.colors.sageStrong} /><Text style={styles.successText}>{inviteFeedback}</Text><Pressable accessibilityRole="button" accessibilityLabel="Hinweis schließen" onPress={() => setInviteFeedback(undefined)} style={styles.successClose}><IconSymbol name="xmark" size={17} color={Design.colors.inkSoft} /></Pressable></View> : null}
       {!sharing.enabled ? (
         <AppCard tone="lavender" elevated={false} style={styles.sharingUnavailable}>
@@ -290,8 +328,8 @@ export default function FamilieScreen() {
           {sharing.pendingInvites.map((invite) => (
             <AppCard key={invite.id} tone="sage" elevated={false} style={styles.pendingInviteCard}>
               <View style={styles.sharingIcon}><IconSymbol name="paperplane.fill" size={20} color={Design.colors.primaryDark} /></View>
-              <View style={styles.sharingCopy}><Text style={styles.sharingTitle}>Einladung zu {invite.familyName}</Text><Text style={styles.sharingText}>Du kannst diesem gemeinsamen Familienbereich beitreten.</Text></View>
-              <AppButton label="Annehmen" compact onPress={() => sharing.acceptInvite(invite.id).catch(() => setInviteFeedback('Die Einladung konnte nicht angenommen werden.'))} />
+              <View style={styles.sharingCopy}><Text style={styles.sharingTitle}>Einladung zu {invite.familyName}</Text><Text style={styles.sharingText}>{roleDescription(invite.role)}{invite.childIds.length ? ` · ${invite.childIds.length} Kind${invite.childIds.length === 1 ? '' : 'er'}` : ' · alle Kinder'}</Text></View>
+              <View style={styles.pendingInviteActions}><AppButton label="Ablehnen" compact variant="secondary" onPress={() => sharing.rejectInvite(invite.id).catch(() => setInviteFeedback('Die Einladung konnte nicht abgelehnt werden.'))} /><AppButton label="Annehmen" compact onPress={() => sharing.acceptInvite(invite.id).catch(() => setInviteFeedback('Die Einladung konnte nicht angenommen werden.'))} /></View>
             </AppCard>
           ))}
           {sharing.families.length > 1 ? <View accessibilityRole="radiogroup" style={styles.familySwitcher}>{sharing.families.map((family) => <Pressable accessibilityRole="radio" accessibilityState={{ checked: family.id === sharing.activeFamily?.id }} key={family.id} onPress={() => sharing.setActiveFamily(family.id)} style={[styles.familyChoice, family.id === sharing.activeFamily?.id && styles.familyChoiceActive]}><Text style={[styles.familyChoiceText, family.id === sharing.activeFamily?.id && styles.familyChoiceTextActive]}>{family.name}</Text></Pressable>)}</View> : null}
@@ -300,16 +338,16 @@ export default function FamilieScreen() {
             <View style={styles.memberList}>{sharing.members.map((member, index) => (
               <View key={member.userId} style={[styles.memberRow, index < sharing.members.length - 1 && styles.memberDivider]}>
                 <View style={styles.memberAvatar}><Text style={styles.memberInitial}>{(member.displayName || member.email).slice(0, 1).toUpperCase()}</Text></View>
-                <View style={styles.sharingCopy}><View style={styles.memberNameRow}><Text style={styles.memberName}>{member.displayName || member.email.split('@')[0]}</Text><View style={styles.rolePill}><Text style={styles.roleText}>{member.role === 'owner' ? 'BESITZER' : 'GAST'}</Text></View></View><Text style={styles.memberEmail}>{member.email}</Text></View>
-                {sharing.canManageFamily && member.role === 'guest' ? <Pressable accessibilityRole="button" accessibilityLabel={`${member.displayName || member.email} entfernen`} onPress={() => setPendingMemberRemoval(member)} style={styles.removeMemberButton}><IconSymbol name="trash.fill" size={16} color={Design.colors.danger} /></Pressable> : null}
+                <View style={styles.sharingCopy}><View style={styles.memberNameRow}><Text style={styles.memberName}>{member.displayName || member.email.split('@')[0]}</Text><View style={styles.rolePill}><Text style={styles.roleText}>{roleLabel(member.role)}</Text></View></View><Text style={styles.memberEmail}>{member.email}</Text><Text style={styles.memberScope}>{member.allChildren ? 'Alle Kinder' : `${member.childIds.length} Kind${member.childIds.length === 1 ? '' : 'er'} freigegeben`}{member.accessExpiresAt ? ` · bis ${formatGermanDate(new Date(member.accessExpiresAt))}` : ''}</Text></View>
+                {sharing.canManageFamily ? <View style={styles.memberActions}><Pressable accessibilityRole="button" accessibilityLabel={`${member.displayName || member.email} Zugriff bearbeiten`} onPress={() => beginMemberEdit(member)} style={styles.editMemberButton}><IconSymbol name="pencil" size={16} color={Design.colors.primaryDark} /></Pressable><Pressable accessibilityRole="button" accessibilityLabel={`${member.displayName || member.email} entfernen`} onPress={() => setPendingMemberRemoval(member)} style={styles.removeMemberButton}><IconSymbol name="trash.fill" size={16} color={Design.colors.danger} /></Pressable></View> : null}
               </View>
             ))}</View>
-            {sharing.canManageFamily && sharing.invites.length > 0 ? <View style={styles.openInvites}><Text style={styles.openInvitesTitle}>Offene Einladungen</Text>{sharing.invites.map((invite) => <View key={invite.id} style={styles.inviteRow}><View style={styles.sharingCopy}><Text style={styles.memberName}>{invite.email}</Text><Text style={styles.memberEmail}>Noch nicht angenommen</Text></View><Pressable accessibilityRole="button" accessibilityLabel={`Einladung an ${invite.email} widerrufen`} onPress={() => sharing.revokeInvite(invite.id).catch(() => setInviteFeedback('Die Einladung konnte nicht widerrufen werden.'))} style={styles.removeMemberButton}><IconSymbol name="xmark" size={16} color={Design.colors.danger} /></Pressable></View>)}</View> : null}
+            {sharing.canManageFamily && sharing.invites.length > 0 ? <View style={styles.openInvites}><Text style={styles.openInvitesTitle}>Offene Einladungen</Text>{sharing.invites.map((invite) => <View key={invite.id} style={styles.inviteRow}><View style={styles.sharingCopy}><Text style={styles.memberName}>{invite.email}</Text><Text style={styles.memberEmail}>{roleLabel(invite.role)} · {invite.childIds.length ? `${invite.childIds.length} Kind${invite.childIds.length === 1 ? '' : 'er'}` : 'alle Kinder'} · gültig bis {formatGermanDate(new Date(invite.expiresAt))}</Text></View><Pressable accessibilityRole="button" accessibilityLabel={`Einladung an ${invite.email} widerrufen`} onPress={() => sharing.revokeInvite(invite.id).catch(() => setInviteFeedback('Die Einladung konnte nicht widerrufen werden.'))} style={styles.removeMemberButton}><IconSymbol name="xmark" size={16} color={Design.colors.danger} /></Pressable></View>)}</View> : null}
           </AppCard>
         </>
       )}
 
-      {sharing.activeFamily?.role !== 'guest' ? <>
+      {sharing.canManageFamily ? <>
         <AppSectionHeading title="Fieberwache Plus" subtitle="Testzeitraum und Tarif" infoTitle="Fieberwache Plus" infoText="Du kannst alle Funktionen sieben Tage kostenlos testen. Danach benötigst du einen Monats- oder Jahrestarif." />
         <AppCard tone="sage" elevated={false} compact style={styles.subscriptionCard}>
           <View style={styles.subscriptionIcon}><IconSymbol name="sparkles" size={21} color={Design.colors.primaryDark} /></View>
@@ -349,13 +387,62 @@ export default function FamilieScreen() {
         <View style={styles.privacyCopyWrap}><Text style={styles.privacyTitle}>{storageProtection === 'encrypted-device' ? 'Lokal verschlüsselt' : 'Browserlokal gespeichert'}</Text><Text style={styles.privacyCopy}>{storageProtection === 'encrypted-device' ? 'Der lokale Datensatz wird mit einem gerätegebundenen Schlüssel verschlüsselt.' : 'Browserdaten sind nicht geräteverschlüsselt und können beim Löschen der Websitedaten verloren gehen.'}</Text></View>
       </AppCard>
 
-      <AppDialog visible={inviteOpen} title="Person einladen" subtitle="Die eingeladene Person erhält als Gast Zugriff auf Kinderprofile und gemeinsame Einträge." onClose={() => { setInviteOpen(false); setInviteError(undefined); }}>
-        <View style={styles.inviteDialogContent}><AppInput label="E-Mail-Adresse" value={inviteEmail} onChangeText={setInviteEmail} error={inviteError} placeholder="name@beispiel.de" keyboardType="email-address" autoCapitalize="none" autoCorrect={false} /><View style={styles.permissionNote}><IconSymbol name="shield-check" size={19} color={Design.colors.primaryDark} /><Text style={styles.permissionNoteText}>Gäste können Einträge sehen und hinzufügen, aber keine Personen einladen, Profile löschen oder das Abo verwalten.</Text></View><AppButton label="Einladung senden" onPress={sendFamilyInvite} disabled={!inviteEmail.trim()} /></View>
+      <AppDialog visible={inviteOpen} title="Person einladen" subtitle="Lege Zugriff fest, bevor die Einladung verschickt wird." onClose={() => { setInviteOpen(false); setInviteError(undefined); }}>
+        <View style={styles.inviteDialogContent}>
+          <AppInput label="E-Mail-Adresse" value={inviteEmail} onChangeText={setInviteEmail} error={inviteError} placeholder="name@beispiel.de" keyboardType="email-address" autoCapitalize="none" autoCorrect={false} />
+          <AccessEditor role={inviteRole} childIds={inviteChildIds} expiryDate={inviteExpiryDate} childProfiles={children} onRoleChange={setInviteRole} onChildIdsChange={setInviteChildIds} onExpiryDateChange={setInviteExpiryDate} />
+          <View style={styles.permissionNote}><IconSymbol name="shield-check" size={19} color={Design.colors.primaryDark} /><Text style={styles.permissionNoteText}>{roleDescription(inviteRole)}. Familienzugriff kann jederzeit widerrufen werden.</Text></View>
+          <AppButton label="Einladung senden" onPress={sendFamilyInvite} disabled={!inviteEmail.trim()} />
+        </View>
       </AppDialog>
-      <AppDialog visible={Boolean(pendingMemberRemoval)} title="Gast entfernen?" subtitle={`${pendingMemberRemoval?.displayName || pendingMemberRemoval?.email || 'Diese Person'} verliert den Zugriff auf alle gemeinsamen Kinderprofile und Einträge.`} onClose={() => setPendingMemberRemoval(undefined)}>
+      <AppDialog visible={Boolean(editingMember)} title="Zugriff bearbeiten" subtitle="Rolle, Kinderzugriff und Ablaufdatum gelten sofort." onClose={() => setEditingMember(undefined)}>
+        <View style={styles.inviteDialogContent}><Text style={styles.editingMemberName}>{editingMember?.displayName || editingMember?.email}</Text><AccessEditor role={memberRole} childIds={memberChildIds} expiryDate={memberExpiryDate} childProfiles={children} onRoleChange={setMemberRole} onChildIdsChange={setMemberChildIds} onExpiryDateChange={setMemberExpiryDate} /><AppButton label="Zugriff speichern" onPress={saveMemberAccess} /></View>
+      </AppDialog>
+      <AppDialog visible={Boolean(pendingMemberRemoval)} title="Zugriff entfernen?" subtitle={`${pendingMemberRemoval?.displayName || pendingMemberRemoval?.email || 'Diese Person'} verliert den Zugriff auf die gemeinsamen Kinderprofile und Einträge.`} onClose={() => setPendingMemberRemoval(undefined)}>
         <View style={styles.deleteButtons}><AppButton label="Abbrechen" variant="secondary" onPress={() => setPendingMemberRemoval(undefined)} style={styles.flexButton} /><AppButton label="Zugriff entfernen" variant="danger" onPress={confirmMemberRemoval} style={styles.flexButton} /></View>
       </AppDialog>
     </AppShell>
+  );
+}
+
+const ACCESS_ROLES: { role: FamilyRole; label: string }[] = [
+  { role: 'caregiver', label: 'Betreuung' },
+  { role: 'read_only', label: 'Nur lesen' },
+  { role: 'temporary_guest', label: 'Zeitlich begrenzt' },
+  { role: 'guest', label: 'Gast (bisher)' },
+  { role: 'owner', label: 'Besitzer' },
+];
+
+function roleLabel(role: FamilyRole) {
+  return ACCESS_ROLES.find((item) => item.role === role)?.label.toUpperCase() ?? 'ZUGRIFF';
+}
+
+function roleDescription(role: FamilyRole) {
+  if (role === 'owner') return 'Kann Familie und Zugriffe verwalten';
+  if (role === 'read_only') return 'Kann Einträge nur ansehen';
+  if (role === 'temporary_guest') return 'Kann Einträge bis zum Ablaufdatum dokumentieren';
+  if (role === 'guest') return 'Kann Einträge dokumentieren';
+  return 'Kann Einträge dokumentieren';
+}
+
+function accessOptions(role: FamilyRole, childIds: string[], expiryDate: string): FamilyAccessOptions | undefined {
+  if (role !== 'temporary_guest') return { role, childIds: role === 'owner' ? [] : childIds };
+  const date = parseGermanDate(expiryDate);
+  if (!date) return undefined;
+  date.setHours(23, 59, 59, 999);
+  if (date.getTime() <= Date.now()) return undefined;
+  return { role, childIds, accessExpiresAt: date.toISOString() };
+}
+
+function AccessEditor({ role, childIds, expiryDate, childProfiles, onRoleChange, onChildIdsChange, onExpiryDateChange }: { role: FamilyRole; childIds: string[]; expiryDate: string; childProfiles: Child[]; onRoleChange: (role: FamilyRole) => void; onChildIdsChange: (childIds: string[]) => void; onExpiryDateChange: (date: string) => void }) {
+  const allChildren = childIds.length === 0;
+  const canLimitChildren = role !== 'owner';
+  return (
+    <View style={styles.accessEditor}>
+      <View style={styles.accessField}><Text style={styles.fieldLabel}>Rolle</Text><View accessibilityRole="radiogroup" style={styles.roleOptions}>{ACCESS_ROLES.map((item) => <Pressable accessibilityRole="radio" accessibilityState={{ checked: item.role === role }} key={item.role} onPress={() => onRoleChange(item.role)} style={[styles.roleOption, item.role === role && styles.roleOptionSelected]}><Text style={[styles.roleOptionText, item.role === role && styles.roleOptionTextSelected]}>{item.label}</Text></Pressable>)}</View><Text style={styles.roleHint}>{roleDescription(role)}</Text></View>
+      {canLimitChildren ? <View style={styles.accessField}><Text style={styles.fieldLabel}>Kinderzugriff</Text><Pressable accessibilityRole="checkbox" accessibilityState={{ checked: allChildren }} onPress={() => onChildIdsChange([])} style={[styles.scopeOption, allChildren && styles.scopeOptionSelected]}><IconSymbol name={allChildren ? 'checkmark' : 'person.2.fill'} size={16} color={allChildren ? '#FFFFFF' : Design.colors.primaryDark} /><Text style={[styles.scopeOptionText, allChildren && styles.scopeOptionTextSelected]}>Alle Kinder</Text></Pressable>{childProfiles.map((child) => { const selected = childIds.includes(child.id); return <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: selected }} key={child.id} onPress={() => onChildIdsChange(selected ? childIds.filter((id) => id !== child.id) : [...childIds, child.id])} style={[styles.scopeOption, selected && styles.scopeOptionSelected]}><IconSymbol name={selected ? 'checkmark' : 'person.2.fill'} size={16} color={selected ? '#FFFFFF' : Design.colors.primaryDark} /><Text style={[styles.scopeOptionText, selected && styles.scopeOptionTextSelected]}>{child.name}</Text></Pressable>; })}<Text style={styles.roleHint}>Wenn einzelne Kinder ausgewählt sind, ist der Zugriff auf diese Profile begrenzt.</Text></View> : null}
+      {role === 'temporary_guest' ? <AppDateTimeInput label="Zugriff endet am" value={expiryDate} onChange={onExpiryDateChange} minimumDate={new Date(Date.now() + 24 * 60 * 60 * 1000)} /> : null}
+    </View>
   );
 }
 
@@ -463,6 +550,7 @@ const styles = StyleSheet.create({
   sharingError: { borderRadius: Design.radius.large, padding: 16, gap: 10, backgroundColor: Design.colors.dangerSoft },
   sharingErrorTitle: { color: Design.colors.danger, fontSize: 14, lineHeight: 19, fontFamily: Design.fonts.bold },
   pendingInviteCard: { flexDirection: 'row', alignItems: 'center', gap: 11 },
+  pendingInviteActions: { gap: 6, alignItems: 'stretch' },
   familySwitcher: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   familyChoice: { minHeight: 44, borderRadius: 15, paddingHorizontal: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: Design.colors.surface, borderWidth: 1, borderColor: Design.colors.border },
   familyChoiceActive: { backgroundColor: Design.colors.primarySoft, borderColor: Design.colors.primary },
@@ -478,13 +566,29 @@ const styles = StyleSheet.create({
   memberNameRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6 },
   memberName: { color: Design.colors.ink, fontSize: 13, lineHeight: 18, fontFamily: Design.fonts.bold },
   memberEmail: { color: Design.colors.inkSoft, fontSize: 11, lineHeight: 16, fontFamily: Design.fonts.regular },
+  memberScope: { color: Design.colors.inkFaint, fontSize: 10, lineHeight: 15, fontFamily: Design.fonts.semiBold },
   rolePill: { borderRadius: 9, paddingHorizontal: 7, paddingVertical: 3, backgroundColor: Design.colors.primarySoft },
   roleText: { color: Design.colors.primaryDark, fontSize: 9, lineHeight: 12, fontFamily: Design.fonts.bold },
+  memberActions: { flexDirection: 'row', gap: 5 },
+  editMemberButton: { width: 44, height: 44, borderRadius: 15, backgroundColor: Design.colors.primarySoft, alignItems: 'center', justifyContent: 'center' },
   removeMemberButton: { width: 44, height: 44, borderRadius: 15, backgroundColor: Design.colors.dangerSoft, alignItems: 'center', justifyContent: 'center' },
   openInvites: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: Design.colors.border, paddingTop: 12, gap: 8 },
   openInvitesTitle: { color: Design.colors.inkSoft, fontSize: 11, lineHeight: 15, letterSpacing: 0.4, fontFamily: Design.fonts.bold },
   inviteRow: { minHeight: 54, flexDirection: 'row', alignItems: 'center', gap: 8 },
   inviteDialogContent: { gap: 14 },
+  editingMemberName: { color: Design.colors.ink, fontSize: 14, lineHeight: 20, fontFamily: Design.fonts.bold },
+  accessEditor: { gap: 12 },
+  accessField: { gap: 8 },
+  roleOptions: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
+  roleOption: { minHeight: 44, borderRadius: 14, paddingHorizontal: 11, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Design.colors.border, backgroundColor: Design.colors.surface },
+  roleOptionSelected: { borderColor: Design.colors.primaryDark, backgroundColor: Design.colors.primaryDark },
+  roleOptionText: { color: Design.colors.inkSoft, fontSize: 12, lineHeight: 17, fontFamily: Design.fonts.semiBold },
+  roleOptionTextSelected: { color: '#FFFFFF', fontFamily: Design.fonts.bold },
+  roleHint: { color: Design.colors.inkSoft, fontSize: 11, lineHeight: 16, fontFamily: Design.fonts.regular },
+  scopeOption: { minHeight: 44, borderRadius: 14, paddingHorizontal: 12, alignItems: 'center', flexDirection: 'row', gap: 8, borderWidth: 1, borderColor: Design.colors.border, backgroundColor: Design.colors.surface },
+  scopeOptionSelected: { borderColor: Design.colors.primaryDark, backgroundColor: Design.colors.primaryDark },
+  scopeOptionText: { color: Design.colors.ink, fontSize: 12, lineHeight: 17, fontFamily: Design.fonts.semiBold },
+  scopeOptionTextSelected: { color: '#FFFFFF', fontFamily: Design.fonts.bold },
   permissionNote: { borderRadius: Design.radius.medium, padding: 13, backgroundColor: Design.colors.primarySoft, flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
   permissionNoteText: { flex: 1, color: Design.colors.inkSoft, fontSize: 12, lineHeight: 18, fontFamily: Design.fonts.regular },
   accountIcon: { width: 42, height: 42, borderRadius: 15, backgroundColor: 'rgba(255,255,255,0.65)', alignItems: 'center', justifyContent: 'center' },

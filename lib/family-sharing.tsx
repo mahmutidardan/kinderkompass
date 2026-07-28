@@ -5,7 +5,7 @@ import { PropsWithChildren, createContext, useCallback, useContext, useEffect, u
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
 
-export type FamilyRole = 'owner' | 'guest';
+export type FamilyRole = 'owner' | 'guest' | 'caregiver' | 'read_only' | 'temporary_guest';
 
 export type SharedFamily = {
   id: string;
@@ -19,6 +19,9 @@ export type FamilyMember = {
   email: string;
   displayName?: string;
   role: FamilyRole;
+  childIds: string[];
+  allChildren: boolean;
+  accessExpiresAt?: string;
 };
 
 export type FamilyInvite = {
@@ -26,8 +29,17 @@ export type FamilyInvite = {
   familyId: string;
   familyName: string;
   email: string;
-  status: 'pending' | 'accepted' | 'revoked';
+  status: 'pending' | 'accepted' | 'rejected' | 'revoked';
+  role: FamilyRole;
+  childIds: string[];
   expiresAt: string;
+  accessExpiresAt?: string;
+};
+
+export type FamilyAccessOptions = {
+  role: FamilyRole;
+  childIds?: string[];
+  accessExpiresAt?: string;
 };
 
 type InviteDelivery = 'email-sent' | 'existing-account';
@@ -43,15 +55,36 @@ type FamilySharingContextValue = {
   pendingInvites: FamilyInvite[];
   canManageFamily: boolean;
   setActiveFamily: (familyId: string) => Promise<void>;
-  inviteMember: (email: string) => Promise<InviteDelivery>;
+  inviteMember: (email: string, access: FamilyAccessOptions) => Promise<InviteDelivery>;
   revokeInvite: (inviteId: string) => Promise<void>;
   removeMember: (userId: string) => Promise<void>;
+  updateMemberAccess: (userId: string, access: FamilyAccessOptions) => Promise<void>;
   acceptInvite: (inviteId: string) => Promise<void>;
+  rejectInvite: (inviteId: string) => Promise<void>;
   refresh: () => Promise<void>;
 };
 
 const ACTIVE_FAMILY_KEY = '@fieberwache/active-family/v1';
 const FamilySharingContext = createContext<FamilySharingContextValue | undefined>(undefined);
+
+function childIdsFrom(rows: unknown) {
+  if (!Array.isArray(rows)) return [];
+  return rows.flatMap((row) => typeof row === 'object' && row && 'child_id' in row && typeof row.child_id === 'string' ? [row.child_id] : []);
+}
+
+function mapInvite(row: any): FamilyInvite {
+  return {
+    id: row.id,
+    familyId: row.family_id,
+    familyName: row.families?.name ?? 'Familie',
+    email: row.email,
+    status: row.status,
+    role: row.role as FamilyRole,
+    childIds: childIdsFrom(row.family_invite_children),
+    expiresAt: row.expires_at,
+    accessExpiresAt: row.access_expires_at ?? undefined,
+  };
+}
 
 export function FamilySharingProvider({ children }: PropsWithChildren) {
   const { user } = useAuth();
@@ -97,13 +130,13 @@ export function FamilySharingProvider({ children }: PropsWithChildren) {
 
     const pendingResult = await supabase
       .from('family_invites')
-      .select('id, family_id, email, status, expires_at, families!inner(name)')
+      .select('id, family_id, email, status, role, expires_at, access_expires_at, families!inner(name), family_invite_children(child_id)')
       .eq('status', 'pending')
       .gt('expires_at', new Date().toISOString());
     if (pendingResult.error) throw pendingResult.error;
     setPendingInvites((pendingResult.data ?? [])
       .filter((row) => row.email.toLowerCase() === user.email?.toLowerCase())
-      .map((row) => ({ id: row.id, familyId: row.family_id, familyName: (row.families as unknown as { name: string }).name, email: row.email, status: row.status as FamilyInvite['status'], expiresAt: row.expires_at })));
+      .map(mapInvite));
 
     if (!nextActiveFamilyId) {
       setMembers([]);
@@ -112,13 +145,21 @@ export function FamilySharingProvider({ children }: PropsWithChildren) {
     }
 
     const [memberResult, inviteResult] = await Promise.all([
-      supabase.from('family_members').select('user_id, email, display_name, role').eq('family_id', nextActiveFamilyId).order('joined_at'),
-      supabase.from('family_invites').select('id, family_id, email, status, expires_at, families!inner(name)').eq('family_id', nextActiveFamilyId).eq('status', 'pending').order('created_at', { ascending: false }),
+      supabase.from('family_members').select('user_id, email, display_name, role, all_children, access_expires_at, family_member_children(child_id)').eq('family_id', nextActiveFamilyId).order('joined_at'),
+      supabase.from('family_invites').select('id, family_id, email, status, role, expires_at, access_expires_at, families!inner(name), family_invite_children(child_id)').eq('family_id', nextActiveFamilyId).eq('status', 'pending').order('created_at', { ascending: false }),
     ]);
     if (memberResult.error) throw memberResult.error;
     if (inviteResult.error) throw inviteResult.error;
-    setMembers((memberResult.data ?? []).map((row) => ({ userId: row.user_id, email: row.email, displayName: row.display_name ?? undefined, role: row.role as FamilyRole })));
-    setInvites((inviteResult.data ?? []).map((row) => ({ id: row.id, familyId: row.family_id, familyName: (row.families as unknown as { name: string }).name, email: row.email, status: row.status as FamilyInvite['status'], expiresAt: row.expires_at })));
+    setMembers((memberResult.data ?? []).map((row: any) => ({
+      userId: row.user_id,
+      email: row.email,
+      displayName: row.display_name ?? undefined,
+      role: row.role as FamilyRole,
+      allChildren: row.all_children !== false,
+      childIds: childIdsFrom(row.family_member_children),
+      accessExpiresAt: row.access_expires_at ?? undefined,
+    })));
+    setInvites((inviteResult.data ?? []).map(mapInvite));
   }, [user?.email, user?.id, user?.name]);
 
   useEffect(() => {
@@ -147,9 +188,16 @@ export function FamilySharingProvider({ children }: PropsWithChildren) {
       setReady(false);
       try { await loadFamilies(familyId); } finally { setReady(true); }
     },
-    inviteMember: async (email) => {
-      if (!supabase || !activeFamily || activeFamily.role !== 'owner') throw new Error('Nur der Familienbesitzer kann Personen einladen.');
-      const result = await supabase.functions.invoke('invite-family-member', { body: { familyId: activeFamily.id, email, redirectTo: Linking.createURL('familie') } });
+    inviteMember: async (email, access) => {
+      if (!supabase || !activeFamily || activeFamily.role !== 'owner') throw new Error('Keine Berechtigung.');
+      const result = await supabase.functions.invoke('invite-family-member', { body: {
+        familyId: activeFamily.id,
+        email,
+        role: access.role,
+        childIds: access.childIds ?? [],
+        accessExpiresAt: access.accessExpiresAt ?? null,
+        redirectTo: Linking.createURL('familie'),
+      } });
       if (result.error || result.data?.error) throw new Error(result.data?.error ?? 'Die Einladung konnte nicht gesendet werden.');
       await loadFamilies(activeFamily.id);
       return result.data.delivery as InviteDelivery;
@@ -166,12 +214,30 @@ export function FamilySharingProvider({ children }: PropsWithChildren) {
       if (result.error) throw result.error;
       await loadFamilies(activeFamily.id);
     },
+    updateMemberAccess: async (userId, access) => {
+      if (!supabase || !activeFamily || activeFamily.role !== 'owner') throw new Error('Keine Berechtigung.');
+      const result = await supabase.rpc('update_family_member_access', {
+        target_family_id: activeFamily.id,
+        target_user_id: userId,
+        target_role: access.role,
+        target_child_ids: access.childIds ?? [],
+        target_access_expires_at: access.accessExpiresAt ?? null,
+      });
+      if (result.error) throw result.error;
+      await loadFamilies(activeFamily.id);
+    },
     acceptInvite: async (inviteId) => {
       if (!supabase) throw new Error('Online-Konto nicht verfügbar.');
       const result = await supabase.rpc('accept_family_invite', { invite_id: inviteId });
       if (result.error) throw result.error;
       setReady(false);
       try { await loadFamilies(result.data as string); } finally { setReady(true); }
+    },
+    rejectInvite: async (inviteId) => {
+      if (!supabase) throw new Error('Online-Konto nicht verfügbar.');
+      const result = await supabase.rpc('reject_family_invite', { target_invite_id: inviteId });
+      if (result.error) throw result.error;
+      await loadFamilies(activeFamily?.id);
     },
     refresh: async () => loadFamilies(activeFamily?.id),
   }), [activeFamily, enabled, error, families, invites, loadFamilies, members, pendingInvites, ready]);
