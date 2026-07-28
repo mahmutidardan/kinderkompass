@@ -2,7 +2,7 @@
 -- The transaction keeps all fixture users, families and audit rows isolated.
 begin;
 
-select plan(14);
+select plan(17);
 
 insert into auth.users (id, aud, role, email, encrypted_password, raw_app_meta_data, raw_user_meta_data)
 values
@@ -50,6 +50,12 @@ select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000101
 select is(private.validate_family_state_scope('{"children":[{"id":"child-a-1"}],"temperatures":[{"childId":"child-other"}],"medications":[],"doctorContacts":[],"appointments":[]}'::jsonb), false, 'manipulated child IDs are rejected');
 select lives_ok($$select public.update_family_state('00000000-0000-0000-0000-000000000201', '{"children":[{"id":"child-a-1"},{"id":"child-a-2"}],"temperatures":[{"childId":"child-a-1"}],"medications":[],"doctorContacts":[],"appointments":[]}'::jsonb)$$, 'owner can write a valid scoped state');
 select is((select count(*) from public.security_audit_log where family_id = '00000000-0000-0000-0000-000000000201' and action = 'child_profiles_changed'), 1::bigint, 'child profile changes create a minimal audit entry');
+select lives_ok($$select public.create_family_invite('00000000-0000-0000-0000-000000000201', 'invited@test.invalid')$$, 'owner can atomically create an invitation');
+select is((select count(*) from public.security_audit_log where family_id = '00000000-0000-0000-0000-000000000201' and action = 'invitation_created'), 1::bigint, 'invitation creation is audited in the same transaction');
+insert into public.family_invitation_rate_limits(family_id, actor_user_id, window_started_at, request_count)
+values ('00000000-0000-0000-0000-000000000201', '00000000-0000-0000-0000-000000000101', now(), 5)
+on conflict (family_id, actor_user_id) do update set window_started_at = excluded.window_started_at, request_count = excluded.request_count;
+select throws_ok($$select public.create_family_invite('00000000-0000-0000-0000-000000000201', 'throttled@test.invalid')$$, 'P0001', 'rate limited', 'owner is rate limited after five invitation attempts per hour');
 
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000102', true);
 select throws_ok($$select public.update_family_state('00000000-0000-0000-0000-000000000201', '{"children":[{"id":"child-a-1"},{"id":"child-a-2"},{"id":"child-a-3"}],"temperatures":[{"childId":"child-a-1"}],"medications":[],"doctorContacts":[],"appointments":[]}'::jsonb)$$, 'P0001', 'not authorized', 'caregiver cannot mutate child profiles');

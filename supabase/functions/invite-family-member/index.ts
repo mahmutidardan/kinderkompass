@@ -36,28 +36,13 @@ Deno.serve(async (request) => {
   if (authorizationError || authorized !== true) return Response.json({ error: 'not authorized' }, { status: 403, headers: corsHeaders });
   if (email === authData.user.email?.toLowerCase()) return Response.json({ error: 'self invitation is not allowed' }, { status: 400, headers: corsHeaders });
 
-  const { data: existingMember } = await adminClient.from('family_members').select('user_id').eq('family_id', body.familyId).eq('email', email).maybeSingle();
-  if (existingMember) return Response.json({ error: 'already a family member' }, { status: 409, headers: corsHeaders });
-
-  const { data: existingInvite } = await adminClient.from('family_invites').select('id, expires_at').eq('family_id', body.familyId).eq('email', email).eq('status', 'pending').maybeSingle();
-  let inviteId = existingInvite?.id;
-  let createdInvite = false;
-  if (!inviteId) {
-    const { data: invite, error: inviteError } = await adminClient.from('family_invites').insert({ family_id: body.familyId, email, invited_by: authData.user.id }).select('id').single();
-    if (inviteError) return Response.json({ error: 'invitation could not be created' }, { status: 400, headers: corsHeaders });
-    inviteId = invite.id;
-    createdInvite = true;
-  }
-
-  if (createdInvite) {
-    const { error: auditError } = await adminClient.from('security_audit_log').insert({
-      actor_user_id: authData.user.id,
-      family_id: body.familyId,
-      action: 'invitation_created',
-      target_type: 'family_invite',
-      target_id: inviteId,
-    });
-    if (auditError) return Response.json({ error: 'invitation could not be recorded' }, { status: 500, headers: corsHeaders });
+  const { data: inviteId, error: inviteError } = await userClient.rpc('create_family_invite', {
+    target_family_id: body.familyId,
+    target_email: email,
+  });
+  if (inviteError || !inviteId) {
+    const status = inviteError?.message === 'rate limited' ? 429 : 400;
+    return Response.json({ error: status === 429 ? 'too many invitations' : 'invitation could not be created' }, { status, headers: corsHeaders });
   }
 
   const inviteResult = await adminClient.auth.admin.inviteUserByEmail(email, {

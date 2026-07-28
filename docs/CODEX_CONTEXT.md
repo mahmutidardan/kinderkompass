@@ -36,7 +36,7 @@ Die Provider-Reihenfolge in `app/_layout.tsx` ist `AuthProvider` → `Subscripti
 - Google OAuth benötigt einen konfigurierten Supabase-Provider sowie erlaubte Web- und `fieberwache://`-Redirects.
 - Die Basis-Migration `20260723_user_states.sql` schützt pro Benutzer über RLS den eigenen JSON-Datensatz.
 - Family Sharing nutzt `families`, `family_members`, `family_invites` und `family_states` mit RLS, Security-Definer-Funktionen und `accept_family_invite`/`update_family_state`.
-- Die Autorisierungsbaseline bündelt Familien-/Kind-Scope in `private.authorize_family_access`, validiert referenzierte `childId`-Werte vor Family-State-Writes und schreibt sicherheitsrelevante Familienänderungen in `security_audit_log`.
+- Die Autorisierungsbaseline bündelt Familien-/Kind-Scope in `private.authorize_family_access`, validiert referenzierte `childId`-Werte vor Family-State-Writes und schreibt sicherheitsrelevante Familienänderungen in `security_audit_log`. Einladungen werden über eine atomare RPC mit Audit und familien-/besitzerbezogenem Stundenlimit erstellt.
 - Besitzer dürfen Profile, Einladungen und Mitglieder verwalten. Gäste dürfen den gemeinsamen Zustand lesen und über die kontrollierte RPC schreiben; die RPC blockiert Änderungen am `children`-Teil. UI-Ausblendung ist nicht die eigentliche Autorisierung.
 - Einladungs-E-Mails werden ausschließlich durch `supabase/functions/invite-family-member/index.ts` mit dem serverseitigen Service-Key versendet.
 
