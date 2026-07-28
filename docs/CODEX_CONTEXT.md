@@ -18,6 +18,7 @@
 - `lib/`: React-Context-Store, Auth, Subscription, Supabase, sichere Speicherung, Datum/Zeit, Temperaturorientierung, U-Untersuchungen, Nachtplanung, Benachrichtigungen und Connectivity.
 - `constants/design.ts`: zentrale Farben, Typografie, Radien, Abstände und Schatten.
 - `supabase/migrations/`: additive SQL-Migrationen für `user_states` und Family Sharing.
+- `supabase/tests/`: pgTAP-Tests für serverseitige Daten- und Rollenautorisierung.
 - `supabase/functions/`: serverseitige Supabase Edge Functions; aktuell `invite-family-member`.
 - `scripts/`: lokaler Testkonto-Helper und LAN-Startskript.
 - `docs/`: Engineering-, Design-, Architektur-, Release- und Family-Sharing-Leitlinien.
@@ -35,6 +36,7 @@ Die Provider-Reihenfolge in `app/_layout.tsx` ist `AuthProvider` → `Subscripti
 - Google OAuth benötigt einen konfigurierten Supabase-Provider sowie erlaubte Web- und `fieberwache://`-Redirects.
 - Die Basis-Migration `20260723_user_states.sql` schützt pro Benutzer über RLS den eigenen JSON-Datensatz.
 - Family Sharing nutzt `families`, `family_members`, `family_invites` und `family_states` mit RLS, Security-Definer-Funktionen und `accept_family_invite`/`update_family_state`.
+- Die Autorisierungsbaseline bündelt Familien-/Kind-Scope in `private.authorize_family_access`, validiert referenzierte `childId`-Werte vor Family-State-Writes und schreibt sicherheitsrelevante Familienänderungen in `security_audit_log`.
 - Besitzer dürfen Profile, Einladungen und Mitglieder verwalten. Gäste dürfen den gemeinsamen Zustand lesen und über die kontrollierte RPC schreiben; die RPC blockiert Änderungen am `children`-Teil. UI-Ausblendung ist nicht die eigentliche Autorisierung.
 - Einladungs-E-Mails werden ausschließlich durch `supabase/functions/invite-family-member/index.ts` mit dem serverseitigen Service-Key versendet.
 
@@ -78,12 +80,13 @@ Temperatur- und Medikamentenerinnerungen werden beim Speichern aus dem vom Nutze
 - `npm run check`: führt Lint, Typecheck und Webexport nacheinander aus.
 - `npm ci`, `npm start`, `npm run web`, `npm run start:lan`, `npm run android` und `npm run ios` sind im Manifest vorhanden.
 - Eine automatisierte Unit-, Integration- oder E2E-Teststruktur wurde nicht gefunden; es gibt auch kein `npm test`-Script. Die CI unter `.github/workflows/ci.yml` führt nur Lint, Typecheck und Webexport aus.
+- Der SQL-Test `supabase/tests/authorization.sql` ist für eine Supabase-Testdatenbank mit pgTAP vorgesehen; lokal ist kein Supabase-Testprojekt oder CLI-Konfigurationsfile eingecheckt.
 
 ## 10. Bekannte architektonische Grenzen
 
 - Gesundheitsdaten sind als monolithischer JSON-State modelliert. Cloud-Schreibvorgänge sind Last-Write-Wins; parallele Bearbeitung kann Änderungen überschreiben.
 - Family-RLS ist auf Familienebene. Per-Feld-Berechtigungen sind nur für Kinderprofile in `update_family_state` speziell abgesichert; weitere Domänen benötigen bei strengeren Rollen ein normalisiertes Modell.
-- Es gibt keine robuste Offline-Queue, Konfliktauflösung, Idempotency Keys oder serverseitige Audit-Tabelle.
+- Es gibt keine robuste Offline-Queue, Konfliktauflösung oder Idempotency Keys. `security_audit_log` deckt nur sicherheitsrelevante Familienänderungen ab, nicht jeden Gesundheitseintrag.
 - Native Speicherung ist verschlüsselt; Browserdaten sind nur browserlokal gespeichert.
 - Browseralarme sind keine verlässlichen Gerätealarme. Native Alarm-, Zeitzonen- und Sommerzeitfälle sind nicht automatisiert getestet.
 - Supabase-Deployment, Edge-Function-Deployment, Auth-Provider-Konfiguration und App-Store-Billing sind außerhalb des Repositories vorausgesetzt.
@@ -101,7 +104,7 @@ Temperatur- und Medikamentenerinnerungen werden beim Speichern aus dem vom Nutze
 
 | Feature | Wahrscheinliche Einstiegspunkte |
 | --- | --- |
-| Autorisierung und Gesundheitsdatensicherheit | `lib/auth.tsx`, `lib/supabase.ts`, `lib/family-sharing.tsx`, `lib/store.tsx`, `supabase/migrations/`, `supabase/functions/`, `SECURITY.md` |
+| Autorisierung und Gesundheitsdatensicherheit | `lib/auth.tsx`, `lib/supabase.ts`, `lib/family-sharing.tsx`, `lib/store.tsx`, `supabase/migrations/`, `supabase/tests/authorization.sql`, `supabase/functions/`, `SECURITY.md` |
 | Familien-Einladungen | `app/(tabs)/familie.tsx`, `lib/family-sharing.tsx`, `supabase/migrations/20260727_family_sharing.sql`, `supabase/functions/invite-family-member/index.ts` |
 | Krankheitsfälle und Timeline | `lib/store.tsx`, `app/(tabs)/index.tsx`, `app/(tabs)/verlauf.tsx`, `app/modal.tsx` |
 | Symptome und Allgemeinzustand | `lib/store.tsx`, `app/modal.tsx`, `app/(tabs)/verlauf.tsx`, `components/ui/` |
@@ -113,4 +116,3 @@ Temperatur- und Medikamentenerinnerungen werden beim Speichern aus dem vom Nutze
 | Quick Entry und Offline-Synchronisierung | `app/(tabs)/index.tsx`, `app/modal.tsx`, `lib/store.tsx`, `lib/use-connectivity.*`, `lib/secure-storage.ts` |
 | KI-Zusammenfassungen | neue serverseitige Funktion plus `lib/store.tsx`, `app/(tabs)/verlauf.tsx`; medizinische Sicherheitsgrenzen aus `AGENTS.md` |
 | Freemium-Entitlements | `lib/subscription.tsx`, `app/paywall.tsx`, `app/_layout.tsx`; später Store-Produkt- und Serverentitlement-Integration |
-

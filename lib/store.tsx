@@ -173,14 +173,16 @@ export function StoreProvider({ children, storageScope = 'local-guest', legacySt
         ?? (legacyStorageScope ? readProtectedState(`${STORAGE_KEY}/${legacyStorageScope}`, legacyStorageScope) : null)
         ?? (storageScope === 'local-guest' ? AsyncStorage.getItem(STORAGE_KEY) : null));
     const cloudState = cloudFamilyId && supabase
-      ? supabase.from('family_states').select('state').eq('family_id', cloudFamilyId).maybeSingle()
+      ? supabase.rpc('get_family_state', { target_family_id: cloudFamilyId })
       : cloudUserId && supabase
         ? supabase.from('user_states').select('state').eq('user_id', cloudUserId).maybeSingle()
       : Promise.resolve(undefined);
     Promise.all([localState, cloudState])
       .then(([stored, cloudResult]) => {
         if (!active) return;
-        const cloudValue = cloudResult && 'data' in cloudResult ? cloudResult.data?.state : undefined;
+        const cloudValue = cloudFamilyId
+          ? (cloudResult && 'data' in cloudResult ? cloudResult.data : undefined)
+          : (cloudResult && 'data' in cloudResult ? cloudResult.data?.state : undefined);
         const source = cloudValue ? JSON.stringify(cloudValue) : stored;
         if (!source) return;
         const parsed = JSON.parse(source) as Partial<AppState>;

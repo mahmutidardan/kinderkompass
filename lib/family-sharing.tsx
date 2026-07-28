@@ -156,13 +156,13 @@ export function FamilySharingProvider({ children }: PropsWithChildren) {
     },
     revokeInvite: async (inviteId) => {
       if (!supabase || !activeFamily || activeFamily.role !== 'owner') throw new Error('Keine Berechtigung.');
-      const result = await supabase.from('family_invites').update({ status: 'revoked' }).eq('id', inviteId);
+      const result = await supabase.rpc('revoke_family_invite', { target_invite_id: inviteId });
       if (result.error) throw result.error;
       await loadFamilies(activeFamily.id);
     },
     removeMember: async (userId) => {
       if (!supabase || !activeFamily || activeFamily.role !== 'owner') throw new Error('Keine Berechtigung.');
-      const result = await supabase.from('family_members').delete().eq('family_id', activeFamily.id).eq('user_id', userId).eq('role', 'guest');
+      const result = await supabase.rpc('remove_family_member', { target_family_id: activeFamily.id, target_user_id: userId });
       if (result.error) throw result.error;
       await loadFamilies(activeFamily.id);
     },
