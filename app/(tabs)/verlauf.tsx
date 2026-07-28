@@ -1,6 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Defs, LinearGradient as SvgLinearGradient, Line, Path, Rect, Stop, Text as SvgText } from 'react-native-svg';
 
@@ -8,10 +8,15 @@ import { AppShell } from '@/components/app-shell';
 import { EmptyChild } from '@/components/empty-child';
 import { InfoButton } from '@/components/info-button';
 import { AppButton } from '@/components/ui/app-button';
+import { AppDateTimeInput } from '@/components/ui/app-date-time-input';
+import { AppDialog } from '@/components/ui/app-dialog';
+import { AppInput } from '@/components/ui/app-input';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Design } from '@/constants/design';
 import { cancelReminder } from '@/lib/notifications';
 import { useStore } from '@/lib/store';
+import { buildHealthTimeline } from '@/lib/health-timeline';
+import { formatGermanDate, parseGermanDate } from '@/lib/date-time';
 import { getTemperatureGuidance } from '@/lib/temperature-guidance';
 
 type ChartPoint = { x: number; y: number };
@@ -53,17 +58,24 @@ function formatMedicationDay(value: string) {
 }
 
 export default function VerlaufScreen() {
-  const { activeChild, temperatures, medications, deleteTemperature, deleteMedication } = useStore();
+  const { activeChild, temperatures, medications, appointments, illnessCases, activeIllnessCaseId, startIllnessCase, closeIllnessCase, reopenIllnessCase, setActiveIllnessCase, deleteTemperature, deleteMedication } = useStore();
   const [chartWidth, setChartWidth] = useState(320);
   const [range, setRange] = useState<Range>('7d');
   const [selectedChartId, setSelectedChartId] = useState<string>();
   const [pendingDelete, setPendingDelete] = useState<{ id: string; type: 'temp' | 'med'; label: string }>();
+  const [caseDialogOpen, setCaseDialogOpen] = useState(false);
+  const [caseTitle, setCaseTitle] = useState('');
+  const [caseDescription, setCaseDescription] = useState('');
+  const [caseStartedAt, setCaseStartedAt] = useState(() => formatGermanDate(new Date()));
   const rangeConfig = RANGES.find((item) => item.value === range)!;
   const cutoff = rangeConfig.milliseconds ? Date.now() - rangeConfig.milliseconds : 0;
   const temps = temperatures.filter((item) => item.childId === activeChild?.id).sort((a, b) => a.recordedAt.localeCompare(b.recordedAt));
   const meds = medications.filter((item) => item.childId === activeChild?.id).sort((a, b) => b.recordedAt.localeCompare(a.recordedAt));
   const filteredTemps = temps.filter((item) => new Date(item.recordedAt).getTime() >= cutoff);
   const filteredMeds = meds.filter((item) => new Date(item.recordedAt).getTime() >= cutoff);
+  const childCases = illnessCases.filter((item) => item.childId === activeChild?.id).sort((a, b) => b.startedAt.localeCompare(a.startedAt));
+  const activeCase = childCases.find((item) => item.id === activeIllnessCaseId && item.status === 'active');
+  const caseTimeline = useMemo(() => activeChild ? buildHealthTimeline({ childId: activeChild.id, illnessCaseId: activeCase?.id, temperatures, medications, appointments }) : [], [activeCase?.id, activeChild, appointments, medications, temperatures]);
   const chartTemps = filteredTemps.slice(-20);
   const recentMeds = filteredMeds.slice(0, 12);
   const todayTemps = temps.filter((item) => isToday(item.recordedAt)).length;
@@ -99,10 +111,23 @@ export default function VerlaufScreen() {
     setPendingDelete(undefined);
   }
 
+  function createIllnessCase() {
+    const date = parseGermanDate(caseStartedAt);
+    if (!caseTitle.trim() || !date) return;
+    date.setHours(12, 0, 0, 0);
+    startIllnessCase({ title: caseTitle, description: caseDescription, startedAt: date.toISOString() });
+    setCaseDialogOpen(false); setCaseTitle(''); setCaseDescription(''); setCaseStartedAt(formatGermanDate(new Date()));
+  }
+
   return (
     <AppShell eyebrow={activeChild ? `Gesundheitstagebuch · ${activeChild.name}` : 'Gesundheitstagebuch'} title="Dein Verlauf">
       {!activeChild ? <EmptyChild /> : (
         <>
+          <View style={styles.caseCard}>
+            <View style={styles.cardHeader}><View><Text style={styles.cardTitle}>{activeCase ? activeCase.title : 'Krankheitsfall'}</Text><Text style={styles.cardMeta}>{activeCase ? `Aktiv seit ${formatGermanDate(new Date(activeCase.startedAt))}` : 'Bündele Messungen, Gaben und Termine zu einem Verlauf.'}</Text></View>{activeCase ? <AppButton label="Abschließen" compact variant="secondary" onPress={() => closeIllnessCase(activeCase.id)} /> : <AppButton label="Fall starten" compact onPress={() => setCaseDialogOpen(true)} />}</View>
+            {activeCase ? <><Text style={styles.caseDescription}>{activeCase.description || 'Neue Messungen und Gaben werden diesem Fall zugeordnet.'}</Text><View style={styles.caseTimeline}>{caseTimeline.length === 0 ? <Text style={styles.cardMeta}>Noch keine Einträge in diesem Fall.</Text> : caseTimeline.slice(0, 5).map((entry) => <View key={`${entry.type}-${entry.id}`} style={styles.caseEvent}><IconSymbol name={entry.type === 'medication' ? 'pills.fill' : entry.type === 'appointment' ? 'calendar' : 'thermometer.medium'} size={16} color={Design.colors.primaryDark} /><View style={styles.rowCopy}><Text style={styles.caseEventTitle}>{entry.title}</Text><Text style={styles.detail}>{entry.detail}</Text></View><Text style={styles.caseEventTime}>{formatDate(entry.recordedAt)}</Text></View>)}</View></> : null}
+            {childCases.filter((item) => item.status === 'completed').length > 0 ? <View style={styles.caseArchive}>{childCases.filter((item) => item.status === 'completed').slice(0, 3).map((item) => <View key={item.id} style={styles.archiveRow}><View style={styles.rowCopy}><Text style={styles.caseEventTitle}>{item.title}</Text><Text style={styles.detail}>Abgeschlossen {item.endedAt ? formatGermanDate(new Date(item.endedAt)) : ''}</Text></View><AppButton label="Öffnen" compact variant="secondary" onPress={() => { reopenIllnessCase(item.id); setActiveIllnessCase(item.id); }} /></View>)}</View> : null}
+          </View>
           <View accessibilityRole="tablist" style={styles.rangeSwitch}>
             {RANGES.map((item) => (
               <Pressable accessibilityRole="tab" accessibilityState={{ selected: range === item.value }} key={item.value} onPress={() => setRange(item.value)} style={[styles.rangeButton, range === item.value && styles.rangeButtonActive]}>
@@ -202,11 +227,20 @@ export default function VerlaufScreen() {
           )}
         </>
       )}
+      <AppDialog visible={caseDialogOpen} title="Krankheitsfall starten" subtitle="Der Fall dient nur der übersichtlichen Dokumentation." onClose={() => setCaseDialogOpen(false)} footer={<AppButton label="Fall starten" onPress={createIllnessCase} disabled={!caseTitle.trim()} />}><AppInput label="Titel" value={caseTitle} onChangeText={setCaseTitle} placeholder="z. B. Erkältung" autoFocus /><AppDateTimeInput label="Beginn" value={caseStartedAt} onChange={setCaseStartedAt} maximumDate={new Date()} /><AppInput label="Notiz" optional value={caseDescription} onChangeText={setCaseDescription} placeholder="Optional" multiline /></AppDialog>
     </AppShell>
   );
 }
 
 const styles = StyleSheet.create({
+  caseCard: { borderRadius: Design.radius.hero, padding: 18, gap: 12, borderWidth: 1, borderColor: Design.colors.border, backgroundColor: Design.colors.lavender, ...Design.shadow.card },
+  caseDescription: { color: Design.colors.inkSoft, fontSize: 12, lineHeight: 18, fontFamily: Design.fonts.regular },
+  caseTimeline: { gap: 7 },
+  caseEvent: { minHeight: 48, borderRadius: 15, paddingHorizontal: 11, paddingVertical: 8, backgroundColor: 'rgba(255,255,255,0.72)', flexDirection: 'row', alignItems: 'center', gap: 9 },
+  caseEventTitle: { color: Design.colors.ink, fontSize: 12, lineHeight: 17, fontFamily: Design.fonts.bold },
+  caseEventTime: { maxWidth: 76, color: Design.colors.inkFaint, fontSize: 10, lineHeight: 14, textAlign: 'right', fontFamily: Design.fonts.semiBold },
+  caseArchive: { gap: 7, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: Design.colors.border, paddingTop: 11 },
+  archiveRow: { minHeight: 52, flexDirection: 'row', alignItems: 'center', gap: 8 },
   rangeSwitch: { flexDirection: 'row', borderRadius: Design.radius.large, backgroundColor: Design.colors.surface, padding: 5, gap: 3, borderWidth: 1, borderColor: Design.colors.border },
   rangeButton: { flex: 1, minHeight: 44, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
   rangeButtonActive: { backgroundColor: Design.colors.primarySoft },

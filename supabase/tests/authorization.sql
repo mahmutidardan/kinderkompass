@@ -2,7 +2,7 @@
 -- The transaction keeps all fixture users, families and audit rows isolated.
 begin;
 
-select plan(17);
+select plan(18);
 
 insert into auth.users (id, aud, role, email, encrypted_password, raw_app_meta_data, raw_user_meta_data)
 values
@@ -48,6 +48,7 @@ select is(private.authorize_family_access('00000000-0000-0000-0000-000000000201'
 
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000101', true);
 select is(private.validate_family_state_scope('{"children":[{"id":"child-a-1"}],"temperatures":[{"childId":"child-other"}],"medications":[],"doctorContacts":[],"appointments":[]}'::jsonb), false, 'manipulated child IDs are rejected');
+select is(private.validate_family_state_scope('{"children":[{"id":"child-a-1"}],"temperatures":[],"medications":[],"doctorContacts":[],"appointments":[],"illnessCases":[{"childId":"child-other"}]}'::jsonb), false, 'illness cases cannot reference another child');
 select lives_ok($$select public.update_family_state('00000000-0000-0000-0000-000000000201', '{"children":[{"id":"child-a-1"},{"id":"child-a-2"}],"temperatures":[{"childId":"child-a-1"}],"medications":[],"doctorContacts":[],"appointments":[]}'::jsonb)$$, 'owner can write a valid scoped state');
 select is((select count(*) from public.security_audit_log where family_id = '00000000-0000-0000-0000-000000000201' and action = 'child_profiles_changed'), 1::bigint, 'child profile changes create a minimal audit entry');
 select lives_ok($$select public.create_family_invite('00000000-0000-0000-0000-000000000201', 'invited@test.invalid')$$, 'owner can atomically create an invitation');

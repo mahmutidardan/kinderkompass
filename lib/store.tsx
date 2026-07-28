@@ -37,6 +37,7 @@ export type TemperatureEntry = {
   method: TemperatureMethod;
   recordedAt: string;
   note?: string;
+  illnessCaseId?: string;
 };
 
 export type MedicationEntry = {
@@ -48,6 +49,7 @@ export type MedicationEntry = {
   recordedAt: string;
   reminderAt?: string;
   reminderNotificationId?: string;
+  illnessCaseId?: string;
 };
 
 export type MedicationInventoryItem = {
@@ -72,6 +74,19 @@ export type Appointment = {
   reminderMinutes?: number;
   note?: string;
   reminderNotificationId?: string;
+  illnessCaseId?: string;
+};
+
+export type IllnessCase = {
+  id: string;
+  childId: string;
+  title: string;
+  description?: string;
+  startedAt: string;
+  endedAt?: string;
+  status: 'active' | 'completed';
+  createdAt: string;
+  updatedAt: string;
 };
 
 type AppState = {
@@ -82,6 +97,8 @@ type AppState = {
   medicationInventory: MedicationInventoryItem[];
   doctorContacts: DoctorContact[];
   appointments: Appointment[];
+  illnessCases: IllnessCase[];
+  activeIllnessCaseId?: string;
   temperatureReminderHours?: number;
   temperatureReminderEnabled?: boolean;
   nightAlarmActiveUntil?: string;
@@ -124,6 +141,11 @@ type Store = AppState & {
   addMedicationInventoryItem: (entry: Omit<MedicationInventoryItem, 'id'>) => void;
   updateMedicationInventoryItem: (id: string, entry: Omit<MedicationInventoryItem, 'id'>) => void;
   deleteMedicationInventoryItem: (id: string) => void;
+  startIllnessCase: (entry: Omit<IllnessCase, 'id' | 'childId' | 'status' | 'createdAt' | 'updatedAt'>) => void;
+  closeIllnessCase: (id: string) => void;
+  reopenIllnessCase: (id: string) => void;
+  setActiveIllnessCase: (id?: string) => void;
+  assignEntryToIllnessCase: (type: 'temperature' | 'medication' | 'appointment', entryId: string, illnessCaseId?: string) => void;
 };
 
 const STORAGE_KEY = '@fieberwache/state/v1';
@@ -134,6 +156,7 @@ const initialState: AppState = {
   medicationInventory: [],
   doctorContacts: [],
   appointments: [],
+  illnessCases: [],
 };
 
 const StoreContext = createContext<Store | undefined>(undefined);
@@ -152,6 +175,7 @@ function normalizeState(parsed: Partial<AppState>): AppState {
     medicationInventory: parsed.medicationInventory ?? [],
     doctorContacts: parsed.doctorContacts ?? [],
     appointments: parsed.appointments ?? [],
+    illnessCases: parsed.illnessCases ?? [],
     temperatureReminderEnabled: parsed.temperatureReminderEnabled ?? Boolean(parsed.temperatureReminderHours),
     nightAlarmTimes: parsed.nightAlarmTimes ?? [],
     nightNotificationIds: parsed.nightNotificationIds ?? [],
@@ -258,12 +282,15 @@ export function StoreProvider({ children, storageScope = 'local-guest', legacySt
 
   const value = useMemo<Store>(() => {
     const activeChild = state.children.find((child) => child.id === state.activeChildId) ?? state.children[0];
+    const activeIllnessCase = state.illnessCases.find((item) => item.id === state.activeIllnessCaseId && item.status === 'active' && item.childId === activeChild?.id)
+      ?? state.illnessCases.find((item) => item.status === 'active' && item.childId === activeChild?.id);
     const blockReadOnlyWrite = () => setStorageError('Dieser Familienzugriff ist schreibgeschützt.');
 
     return {
       ...state,
       activeChildId: activeChild?.id,
       activeChild,
+      activeIllnessCaseId: activeIllnessCase?.id,
       nightAlarmActive: Boolean(state.nightAlarmActiveUntil && new Date(state.nightAlarmActiveUntil).getTime() > clock),
       hydrated,
       storageError,
@@ -303,6 +330,8 @@ export function StoreProvider({ children, storageScope = 'local-guest', legacySt
             medications: current.medications.filter((entry) => entry.childId !== id),
             doctorContacts: current.doctorContacts.filter((entry) => entry.childId !== id),
             appointments: current.appointments.filter((entry) => entry.childId !== id),
+            illnessCases: current.illnessCases.filter((entry) => entry.childId !== id),
+            ...(current.illnessCases.some((entry) => entry.id === current.activeIllnessCaseId && entry.childId === id) ? { activeIllnessCaseId: undefined } : {}),
             ...(current.activeChildId === id ? {
               temperatureReminderAt: undefined,
               temperatureNotificationId: undefined,
@@ -363,7 +392,7 @@ export function StoreProvider({ children, storageScope = 'local-guest', legacySt
         if (!activeChild) return;
         setState((current) => ({
           ...current,
-          appointments: [...current.appointments, { ...entry, id: newId('appointment'), childId: activeChild.id }],
+          appointments: [...current.appointments, { ...entry, id: newId('appointment'), childId: activeChild.id, illnessCaseId: current.activeIllnessCaseId }],
         }));
       },
       updateAppointment: (id, entry) => {
@@ -385,7 +414,7 @@ export function StoreProvider({ children, storageScope = 'local-guest', legacySt
         if (!activeChild) return;
         setState((current) => ({
           ...current,
-          temperatures: [...current.temperatures, { ...entry, id: newId('temp'), childId: activeChild.id }],
+          temperatures: [...current.temperatures, { ...entry, id: newId('temp'), childId: activeChild.id, illnessCaseId: current.activeIllnessCaseId }],
         }));
       },
       updateTemperature: (id, entry) => {
@@ -407,7 +436,7 @@ export function StoreProvider({ children, storageScope = 'local-guest', legacySt
         if (!activeChild) return;
         setState((current) => ({
           ...current,
-          medications: [...current.medications, { ...entry, id: newId('med'), childId: activeChild.id }],
+          medications: [...current.medications, { ...entry, id: newId('med'), childId: activeChild.id, illnessCaseId: current.activeIllnessCaseId }],
         }));
       },
       updateMedication: (id, entry) => {
@@ -472,6 +501,33 @@ export function StoreProvider({ children, storageScope = 'local-guest', legacySt
         setState((current) => ({
           ...current,
           medicationInventory: current.medicationInventory.filter((item) => item.id !== id),
+        }));
+      },
+      startIllnessCase: (entry) => {
+        if (readOnly) return blockReadOnlyWrite();
+        if (!activeChild) return;
+        const now = new Date().toISOString();
+        const illnessCase: IllnessCase = { ...entry, id: newId('case'), childId: activeChild.id, title: entry.title.trim(), description: entry.description?.trim() || undefined, status: 'active', createdAt: now, updatedAt: now };
+        setState((current) => ({ ...current, illnessCases: [...current.illnessCases, illnessCase], activeIllnessCaseId: illnessCase.id }));
+      },
+      closeIllnessCase: (id) => {
+        if (readOnly) return blockReadOnlyWrite();
+        const now = new Date().toISOString();
+        setState((current) => ({ ...current, activeIllnessCaseId: current.activeIllnessCaseId === id ? undefined : current.activeIllnessCaseId, illnessCases: current.illnessCases.map((item) => item.id === id ? { ...item, status: 'completed', endedAt: now, updatedAt: now } : item) }));
+      },
+      reopenIllnessCase: (id) => {
+        if (readOnly) return blockReadOnlyWrite();
+        const now = new Date().toISOString();
+        setState((current) => ({ ...current, activeIllnessCaseId: id, illnessCases: current.illnessCases.map((item) => item.id === id ? { ...item, status: 'active', endedAt: undefined, updatedAt: now } : item) }));
+      },
+      setActiveIllnessCase: (id) => setState((current) => ({ ...current, activeIllnessCaseId: id })),
+      assignEntryToIllnessCase: (type, entryId, illnessCaseId) => {
+        if (readOnly) return blockReadOnlyWrite();
+        setState((current) => ({
+          ...current,
+          temperatures: type === 'temperature' ? current.temperatures.map((item) => item.id === entryId ? { ...item, illnessCaseId } : item) : current.temperatures,
+          medications: type === 'medication' ? current.medications.map((item) => item.id === entryId ? { ...item, illnessCaseId } : item) : current.medications,
+          appointments: type === 'appointment' ? current.appointments.map((item) => item.id === entryId ? { ...item, illnessCaseId } : item) : current.appointments,
         }));
       },
     };

@@ -80,6 +80,8 @@ export default function HomeScreen() {
     temperatures,
     medications,
     nightAlarmActive,
+    illnessCases,
+    activeIllnessCaseId,
     storageError,
     syncStatus,
   } = useStore();
@@ -132,6 +134,8 @@ export default function HomeScreen() {
         color: Design.colors.peachStrong,
       })),
   ].sort((a, b) => b.recordedAt.localeCompare(a.recordedAt));
+  const activeIllnessCase = illnessCases.find((item) => item.id === activeIllnessCaseId && item.childId === activeChild?.id && item.status === 'active')
+    ?? illnessCases.find((item) => item.childId === activeChild?.id && item.status === 'active');
 
   function changeWeek(direction: -1 | 1) {
     const nextOffset = weekOffset + direction;
@@ -200,6 +204,7 @@ export default function HomeScreen() {
 
         {!activeChild ? <EmptyChild /> : (
           <>
+            {activeIllnessCase ? <Pressable accessibilityRole="button" accessibilityLabel="Aktiven Krankheitsfall im Verlauf öffnen" onPress={() => router.push('/verlauf')} style={styles.illnessBanner}><View style={styles.illnessBannerIcon}><MaterialIcons name="timeline" size={20} color={DASHBOARD.colors.primary} /></View><View style={styles.illnessBannerCopy}><Text style={styles.illnessBannerLabel}>AKTIVER KRANKHEITSFALL</Text><Text style={styles.illnessBannerTitle}>{activeIllnessCase.title}</Text></View><MaterialIcons name="arrow-forward" size={19} color={DASHBOARD.colors.primary} /></Pressable> : null}
             <View style={styles.calendarSection}>
               <View style={styles.sectionHeader}>
                 <Text style={styles.pageTitle}>{selectedIsToday ? 'Heute' : formatSelectedDate(selectedDate)}</Text>
@@ -369,6 +374,11 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
+  illnessBanner: { minHeight: 66, borderRadius: 20, paddingHorizontal: 14, backgroundColor: DASHBOARD.colors.primarySoft, flexDirection: 'row', alignItems: 'center', gap: 11 },
+  illnessBannerIcon: { width: 38, height: 38, borderRadius: 14, backgroundColor: Design.colors.surface, alignItems: 'center', justifyContent: 'center' },
+  illnessBannerCopy: { flex: 1, gap: 1 },
+  illnessBannerLabel: { color: DASHBOARD.colors.primary, fontSize: 10, lineHeight: 14, letterSpacing: 0.55, fontFamily: Design.fonts.extraBold },
+  illnessBannerTitle: { color: Design.colors.ink, fontSize: 14, lineHeight: 19, fontFamily: Design.fonts.bold },
   safe: { flex: 1, backgroundColor: DASHBOARD.colors.background },
   topBar: { height: 64, backgroundColor: DASHBOARD.colors.translucentHeader, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: DASHBOARD.colors.borderSoft, zIndex: 5 },
   topBarInner: { width: '100%', maxWidth: 800, height: 64, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
